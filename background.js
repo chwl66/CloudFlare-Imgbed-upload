@@ -94,7 +94,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // 保持消息通道开放
   }
   
-
+  if (request.action === 'uploadImageUrl') {
+    // 通过 background script 获取跨域图片
+    (async () => {
+      try {
+        const result = await uploadImageFromUrl(request.imageUrl, request.fileName);
+        sendResponse({ success: true, result });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 保持消息通道开放
+  }
   
   if (request.action === 'copyToClipboard') {
     // 通过 content script 复制到剪贴板
@@ -185,5 +196,82 @@ async function uploadFile(fileData, fileName) {
     url: imageUrl,
     formatted: imageUrl  // 直接返回完整链接，不进行格式化
   };
+}
+
+// 通过 background script 获取跨域图片并上传
+async function uploadImageFromUrl(imageUrl, fileName) {
+  try {
+    // 尝试多种请求头配置来绕过防盗链
+    const requestOptions = [
+      // 第一次尝试：模拟浏览器请求
+      {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': new URL(imageUrl).origin,
+          'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      },
+      // 第二次尝试：简化请求头
+      {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/*,*/*;q=0.8'
+        }
+      },
+      // 第三次尝试：最基本的请求
+      {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; ImageUploader/1.0)'
+        }
+      }
+    ];
+    
+    let lastError;
+    
+    // 依次尝试不同的请求配置
+    for (let i = 0; i < requestOptions.length; i++) {
+      try {
+        console.log(`尝试获取图片 (方式 ${i + 1}):`, imageUrl);
+        const response = await fetch(imageUrl, requestOptions[i]);
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          
+          // 检查是否真的是图片
+          if (!blob.type.startsWith('image/')) {
+            throw new Error(`响应不是图片格式: ${blob.type}`);
+          }
+          
+          // 转换为 base64
+          const arrayBuffer = await blob.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          const mimeType = blob.type || 'image/jpeg';
+          const dataUrl = `data:${mimeType};base64,${base64}`;
+          
+          console.log('图片获取成功，开始上传...');
+          // 调用现有的上传函数
+          return await uploadFile(dataUrl, fileName);
+        } else {
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+          console.log(`方式 ${i + 1} 失败:`, lastError.message);
+        }
+      } catch (error) {
+        lastError = error;
+        console.log(`方式 ${i + 1} 异常:`, error.message);
+      }
+    }
+    
+    // 所有方式都失败了
+    throw lastError || new Error('所有获取方式都失败了');
+    
+  } catch (error) {
+    throw new Error(`跨域图片上传失败: ${error.message}`);
+  }
 }
 

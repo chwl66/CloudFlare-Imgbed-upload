@@ -11,13 +11,13 @@ function createResultNotification(result, type) {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 420px;
+    width: 350px;
     background: ${bgColor};
     border: 2px solid ${borderColor};
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
     z-index: 10001;
-    padding: 20px;
+    padding: 16px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
     color: ${textColor};
@@ -32,42 +32,51 @@ function createResultNotification(result, type) {
       { label: 'BBCode', value: `[img]${result.url}[/img]` }
     ];
     
+    // 优化链接显示长度
+    const truncateText = (text, maxLength = 55) => {
+      if (text.length <= maxLength) return text;
+      const start = text.substring(0, 30);
+      const end = text.substring(text.length - 20);
+      return `${start}...${end}`;
+    };
+    
+
+    
     const formatItems = formats.map(format => `
-      <div class="format-item" style="margin-bottom: 8px;">
-        <div style="font-size: 12px; margin-bottom: 4px; color: #64748b; font-weight: 500;">${format.label}：</div>
-        <div class="link-item" style="background: rgba(14, 165, 233, 0.1); padding: 10px; border-radius: 6px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; word-break: break-all; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(14, 165, 233, 0.2);" data-text="${format.value}">${format.value}</div>
+      <div class="format-item" style="margin-bottom: 4px;">
+        <div style="color: #64748b; font-weight: 500; font-size: 9px; margin-bottom: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${format.label}</div>
+        <div class="link-item" style="background: rgba(14, 165, 233, 0.1); padding: 6px 8px; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(14, 165, 233, 0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" data-text="${format.value}" title="${format.value}">
+          ${truncateText(format.value)}
+        </div>
       </div>
     `).join('');
     
     notification.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 24px; height: 24px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">✓</div>
-          <strong style="color: #059669;">上传成功！</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="width: 20px; height: 20px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>
+          <strong style="color: #059669; font-size: 13px;">上传成功！</strong>
         </div>
-        <button class="close-btn" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 6px; font-size: 16px; cursor: pointer; color: ${textColor}; padding: 4px 8px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
+        <button class="close-btn" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 5px; font-size: 14px; cursor: pointer; color: ${textColor}; padding: 2px 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
       </div>
-      <div style="margin-bottom: 12px;">
+      <div style="margin-bottom: 10px;">
         ${formatItems}
-      </div>
-      <div style="margin-top: 16px; font-size: 12px; color: #64748b; text-align: center; padding: 8px; background: rgba(14, 165, 233, 0.05); border-radius: 6px;">
-        <span>💡 点击任意格式复制到剪贴板</span>
       </div>
     `;
   } else {
     notification.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 24px; height: 24px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px;">✕</div>
-          <strong style="color: #dc2626;">上传失败</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="width: 20px; height: 20px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✕</div>
+          <strong style="color: #dc2626; font-size: 13px;">上传失败</strong>
         </div>
-        <button class="close-btn" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 16px; cursor: pointer; color: ${textColor}; padding: 4px 8px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
+        <button class="close-btn" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 5px; font-size: 14px; cursor: pointer; color: ${textColor}; padding: 2px 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
       </div>
-      <div style="margin-bottom: 12px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; border-left: 4px solid #ef4444;">
-        <div style="font-weight: 500; margin-bottom: 4px;">错误信息：</div>
-        <div style="font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;">${result.error}</div>
+      <div style="margin-bottom: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 5px; border-left: 3px solid #ef4444;">
+        <div style="font-weight: 500; margin-bottom: 3px; font-size: 12px;">错误信息：</div>
+        <div style="font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; word-break: break-word;">${result.error}</div>
       </div>
-      <div style="margin-top: 16px; font-size: 12px; color: #64748b; text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.05); border-radius: 6px;">
+      <div style="margin-top: 12px; font-size: 11px; color: #64748b; text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.05); border-radius: 5px;">
         <span>🔧 请检查配置或重试</span>
       </div>
     `;
