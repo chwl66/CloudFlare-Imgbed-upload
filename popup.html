@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 400px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h2 {
+      margin: 0;
+      color: #333;
+      font-size: 18px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #555;
+      font-size: 13px;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin-right: 8px;
+    }
+    
+    .checkbox-group label {
+      margin-bottom: 0;
+      font-weight: normal;
+      cursor: pointer;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-primary {
+      background-color: #007acc;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #005a9e;
+    }
+    
+    .btn-secondary {
+      background-color: #f3f3f3;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #e9e9e9;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      display: none;
+    }
+    
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .help-text {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .upload-progress {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #2196F3);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .upload-result {
+      font-size: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      display: none;
+    }
+    
+    .upload-result.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .upload-result.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .upload-result.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .result-link {
+      word-break: break-all;
+      font-family: monospace;
+      background: rgba(0,0,0,0.1);
+      padding: 4px 6px;
+      border-radius: 3px;
+      margin: 4px 0;
+      display: block;
+      cursor: pointer;
+    }
+    
+    .result-link:hover {
+      background: rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>CloudFlare ImgBed 配置</h2>
+  </div>
+  
+  <div id="status" class="status"></div>
+  
+  <form id="configForm">
+    <div class="form-group">
+      <label for="apiUrl">API 地址 *</label>
+      <input type="url" id="apiUrl" placeholder="https://your.domain" required>
+      <div class="help-text">您的 CloudFlare ImgBed 服务地址</div>
+    </div>
+    
+    <div class="form-group">
+      <label for="authCode">上传认证码 (可选)</label>
+      <input type="password" id="authCode" placeholder="输入认证码（如果需要）">
+      <div class="help-text">用于身份验证的认证码，如果服务不需要认证可留空</div>
+    </div>
+    
+    <div class="form-group">
+      <label for="uploadChannel">上传渠道</label>
+      <select id="uploadChannel">
+        <option value="telegram">Telegram</option>
+        <option value="cfr2">CloudFlare R2</option>
+        <option value="s3">S3</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="uploadNameType">文件命名方式</label>
+      <select id="uploadNameType">
+        <option value="default">默认前缀_原名</option>
+        <option value="index">仅前缀</option>
+        <option value="origin">仅原名</option>
+        <option value="short">短链接</option>
+      </select>
+    </div>
+    
+
+    
+    <div class="form-group">
+      <label for="uploadFolder">上传目录 (可选)</label>
+      <input type="text" id="uploadFolder" placeholder="例如: img/test">
+      <div class="help-text">留空表示上传到根目录</div>
+    </div>
+    
+
+    
+    <div class="checkbox-group">
+      <input type="checkbox" id="serverCompress">
+      <label for="serverCompress">服务端压缩 (仅Telegram图片)</label>
+    </div>
+    
+    <div class="checkbox-group">
+      <input type="checkbox" id="autoRetry">
+      <label for="autoRetry">失败时自动重试</label>
+    </div>
+    
+
+    
+
+    
+    <div class="button-group">
+      <button type="submit" class="btn btn-primary">保存配置</button>
+      <button type="button" id="testBtn" class="btn btn-secondary">测试连接</button>
+    </div>
+    
+    <!-- 上传进度区域 -->
+    <div id="uploadProgress" class="upload-progress" style="display: none;">
+      <div class="progress-header">
+        <span id="progressText">准备上传...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div id="uploadResult" class="upload-result"></div>
+    </div>
+  </form>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
