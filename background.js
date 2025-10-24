@@ -1,20 +1,12 @@
-// 默认配置
-const DEFAULT_CONFIG = {
-  apiUrl: 'https://your.domain',
-  authCode: '',
-  serverCompress: true,
-  uploadChannel: 'telegram',
-  autoRetry: true,
-  uploadNameType: 'default',
-  uploadFolder: ''
-};
+import { DEFAULT_CONFIG } from './utils/constants.js';
+import { getConfig } from './utils/config.js';
+import { buildUploadUrl } from './utils/api.js';
 
 // 初始化扩展
 chrome.runtime.onInstalled.addListener(async () => {
   // 初始化配置
-  const config = await chrome.storage.sync.get(Object.keys(DEFAULT_CONFIG));
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  await chrome.storage.sync.set(mergedConfig);
+  const config = await getConfig();
+  await chrome.storage.sync.set(config);
   
   // 创建右键菜单
   createContextMenus();
@@ -119,31 +111,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 简化的上传文件函数
 async function uploadFile(fileData, fileName) {
-  const config = await chrome.storage.sync.get(Object.keys(DEFAULT_CONFIG));
-  
-  if (!config.apiUrl) {
-    throw new Error('请先配置 API 地址！');
-  }
-  
-  // 构建查询参数
-  const params = new URLSearchParams({
-    serverCompress: config.serverCompress,
-    uploadChannel: config.uploadChannel,
-    autoRetry: config.autoRetry,
-    uploadNameType: config.uploadNameType,
-    returnFormat: 'full'  // 强制使用完整链接格式
-  });
-  
-  // 只有当认证码不为空时才添加
-  if (config.authCode && config.authCode.trim()) {
-    params.append('authCode', config.authCode);
-  }
-  
-  if (config.uploadFolder) {
-    params.append('uploadFolder', config.uploadFolder);
-  }
-  
-  const uploadUrl = `${config.apiUrl.replace(/\/$/, '')}/upload?${params.toString()}`;
+  const uploadUrl = await buildUploadUrl();
   
   // 将 base64 转换为 blob
   const response = await fetch(fileData);
@@ -170,6 +138,7 @@ async function uploadFile(fileData, fileName) {
   let imageUrl = result[0].src;
   
   // 如果返回的是相对路径，添加域名
+  const config = await getConfig();
   if (imageUrl.startsWith('/')) {
     imageUrl = config.apiUrl.replace(/\/$/, '') + imageUrl;
   } else {
