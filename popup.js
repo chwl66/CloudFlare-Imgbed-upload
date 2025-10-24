@@ -1,13 +1,6 @@
-// 默认配置
-const DEFAULT_CONFIG = {
-  apiUrl: 'https://your.domain',
-  authCode: '',
-  serverCompress: true,
-  uploadChannel: 'telegram',
-  autoRetry: true,
-  uploadNameType: 'default',
-  uploadFolder: ''
-};
+import { DEFAULT_CONFIG } from './utils/constants.js';
+import { getConfig } from './utils/config.js';
+import { buildUploadUrl } from './utils/api.js';
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -18,8 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 加载配置
 async function loadConfig() {
   try {
-    const config = await chrome.storage.sync.get(Object.keys(DEFAULT_CONFIG));
-    const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+    const mergedConfig = await getConfig();
     
     // 填充表单
     Object.keys(mergedConfig).forEach(key => {
@@ -82,8 +74,6 @@ async function saveConfig() {
 // 测试连接
 async function testConnection() {
   const apiUrl = document.getElementById('apiUrl').value.trim();
-  const authCode = document.getElementById('authCode').value.trim();
-  
   if (!apiUrl) {
     showStatus('请先填写 API 地址！', 'error');
     return;
@@ -101,18 +91,23 @@ async function testConnection() {
     const formData = new FormData();
     formData.append('file', blob, 'test.png');
     
-    const uploadChannel = document.getElementById('uploadChannel').value;
-    const params = new URLSearchParams({
-      uploadChannel: uploadChannel,
-      uploadNameType: 'short' // 使用短链接避免文件名冲突
+    // 从表单收集当前配置
+    const currentConfig = {};
+    Object.keys(DEFAULT_CONFIG).forEach(key => {
+      const element = document.getElementById(key);
+      if (element) {
+        if (element.type === 'checkbox') {
+          currentConfig[key] = element.checked;
+        } else {
+          currentConfig[key] = element.value.trim();
+        }
+      }
     });
     
-    // 只有当认证码不为空时才添加
-    if (authCode) {
-      params.append('authCode', authCode);
-    }
-    
-    const uploadUrl = `${apiUrl.replace(/\/$/, '')}/upload?${params.toString()}`;
+    const uploadUrl = await buildUploadUrl(
+      { uploadNameType: 'short' }, // 额外参数
+      currentConfig // 覆盖配置
+    );
     
     const uploadResponse = await fetch(uploadUrl, {
       method: 'POST',
