@@ -137,32 +137,66 @@ function createContextMenus() {
   });
 }
 
+// 发送右键菜单消息并统一处理错误反馈
+function sendContextMenuMessage(tabId, message, actionLabel) {
+  if (typeof tabId !== 'number') {
+    log('error', `${actionLabel}失败：无效标签页`, { tabId });
+    showContextMenuError(`${actionLabel}失败：无法定位当前页面`);
+    return;
+  }
+
+  chrome.tabs.sendMessage(tabId, message, (response) => {
+    if (chrome.runtime.lastError) {
+      log('error', `${actionLabel}失败：消息发送异常`, { error: chrome.runtime.lastError.message });
+      showContextMenuError(`${actionLabel}失败：${chrome.runtime.lastError.message}`);
+      return;
+    }
+
+    if (response && response.success === false) {
+      const errorMessage = response.error || '未知错误';
+      log('error', `${actionLabel}失败：内容脚本返回错误`, { error: errorMessage });
+      showContextMenuError(`${actionLabel}失败：${errorMessage}`);
+    }
+  });
+}
+
+// 显示右键菜单错误提示
+function showContextMenuError(message) {
+  chrome.notifications.create(`imgbed-context-error-${Date.now()}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon48.png',
+    title: 'ImgBed 上传失败',
+    message
+  });
+}
+
 // 处理右键菜单点击
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   log('debug', `菜单点击: ${info.menuItemId}`);
-  
+
   switch (info.menuItemId) {
     case 'upload-image':
       // 上传图片
-      chrome.tabs.sendMessage(tab.id, {
+      sendContextMenuMessage(tab?.id, {
         action: 'uploadImage',
         imageUrl: info.srcUrl
-      });
+      }, '上传图片');
       break;
-      
+
     case 'upload-clipboard':
       // 上传剪贴板图片
-      chrome.tabs.sendMessage(tab.id, {
+      sendContextMenuMessage(tab?.id, {
         action: 'uploadClipboard'
-      });
+      }, '上传剪贴板图片');
       break;
-      
+
     case 'open-config':
       // 打开配置页面
       chrome.action.openPopup();
       break;
   }
 });
+
 
 // ==================== 消息处理 ====================
 
