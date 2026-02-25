@@ -70,7 +70,7 @@ async function saveFormConfig() {
     
     // 兼容未暴露在 UI 的配置项
     if (!Object.prototype.hasOwnProperty.call(config, 'returnFormat')) {
-      config.returnFormat = (originalConfig && originalConfig.returnFormat) || DEFAULT_CONFIG.returnFormat;
+      config.returnFormat = originalConfig?.returnFormat ?? DEFAULT_CONFIG.returnFormat;
     }
 
     // 使用公共验证函数
