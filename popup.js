@@ -19,7 +19,7 @@ async function loadConfig() {
     originalConfig = { ...mergedConfig };
     
     // 使用掩码配置显示敏感信息
-    const maskedConfig = getMaskedConfig ? getMaskedConfig(mergedConfig) : mergedConfig;
+    const maskedConfig = getMaskedConfig(mergedConfig);
     
     // 填充表单
     Object.keys(maskedConfig).forEach(key => {
@@ -106,7 +106,7 @@ async function testConnection() {
   const apiUrlInput = document.getElementById('apiUrl').value.trim();
   const authCodeInput = document.getElementById('authCode').value.trim();
 
-  const apiUrl = typeof normalizeApiUrlValue === 'function' ? normalizeApiUrlValue(apiUrlInput) : apiUrlInput;
+  const apiUrl = normalizeApiUrlValue(apiUrlInput);
   let authCode = authCodeInput;
 
   // 认证码掩码值恢复为原始值，避免测试连接误用掩码字符
