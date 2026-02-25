@@ -278,7 +278,7 @@ async function resetConfig() {
 
 // 配置迁移
 async function migrateConfigIfNeeded(config) {
-  const currentVersion = config._version || '0.0.0';
+  const currentVersion = config._version ?? '0.0.0';
   
   if (compareVersions(currentVersion, CONFIG_VERSION) >= 0) {
     return; // 版本相同或更高，无需迁移
