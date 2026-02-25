@@ -110,7 +110,7 @@ async function testConnection() {
   let authCode = authCodeInput;
 
   // 认证码掩码值恢复为原始值，避免测试连接误用掩码字符
-  if (isMaskedValue(authCodeInput) && originalConfig && originalConfig.authCode) {
+  if (isMaskedValue(authCodeInput) && originalConfig?.authCode) {
     authCode = originalConfig.authCode;
   }
 
@@ -265,7 +265,7 @@ function bindEvents() {
     // 认证码输入框失焦时，如果为空则恢复掩码显示
     if (input.id === 'authCode') {
       input.addEventListener('blur', () => {
-        if (input.value === '' && originalConfig && originalConfig.authCode) {
+        if (input.value === '' && originalConfig?.authCode) {
           input.value = AUTH_CODE_MASK_MARKER;
           input.dataset.isMasked = 'true';
           input.placeholder = '输入认证码（如果需要）';
