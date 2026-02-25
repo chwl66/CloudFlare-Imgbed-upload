@@ -18,6 +18,9 @@ const CONFIG_META_KEYS = ['_version'];
 const SENSITIVE_CONFIG_KEYS = ['authCode'];
 const SYNC_CONFIG_KEYS = CONFIG_KEYS.filter(key => !SENSITIVE_CONFIG_KEYS.includes(key));
 
+const UPLOAD_TIMEOUT_MIN = 10000;
+const UPLOAD_TIMEOUT_MAX = 300000;
+
 // 配置版本管理
 const CONFIG_VERSION = '1.3.0';
 
@@ -402,7 +405,7 @@ function normalizeConfig(config = {}) {
   if (!Number.isFinite(timeout)) {
     normalized.uploadTimeout = DEFAULT_CONFIG.uploadTimeout;
   } else {
-    normalized.uploadTimeout = Math.max(10000, Math.min(300000, Math.floor(timeout)));
+    normalized.uploadTimeout = Math.max(UPLOAD_TIMEOUT_MIN, Math.min(UPLOAD_TIMEOUT_MAX, Math.floor(timeout)));
   }
 
   return normalized;

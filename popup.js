@@ -59,7 +59,9 @@ async function saveFormConfig() {
           // 超时时间从秒转换为毫秒
           const defaultTimeoutSeconds = Math.floor(DEFAULT_CONFIG.uploadTimeout / 1000);
           const seconds = parseInt(element.value, 10) || defaultTimeoutSeconds;
-          config[key] = Math.max(10, Math.min(300, seconds)) * 1000;
+          const minTimeoutSeconds = Math.floor(UPLOAD_TIMEOUT_MIN / 1000);
+          const maxTimeoutSeconds = Math.floor(UPLOAD_TIMEOUT_MAX / 1000);
+          config[key] = Math.max(minTimeoutSeconds, Math.min(maxTimeoutSeconds, seconds)) * 1000;
         } else {
           config[key] = element.value.trim();
         }
