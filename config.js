@@ -228,27 +228,9 @@ function validateConfig(config) {
     }
   }
 
-  // 上传渠道验证
-  if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(normalized.uploadChannel)) {
-    errors.push('无效的上传渠道！');
-  }
-
-  // 文件命名方式验证
-  if (!CONSTANTS.VALID_NAME_TYPES.includes(normalized.uploadNameType)) {
-    errors.push('无效的文件命名方式！');
-  }
-
-  // 返回格式验证
-  if (!CONSTANTS.VALID_RETURN_FORMATS.includes(normalized.returnFormat)) {
-    errors.push('无效的返回格式！');
-  }
-
   // 上传目录验证（如果提供）
-  if (normalized.uploadFolder) {
-    // 检查路径格式
-    if (normalized.uploadFolder.includes('..') || normalized.uploadFolder.includes('//')) {
-      errors.push('上传目录格式不正确！');
-    }
+  if (normalized.uploadFolder && normalized.uploadFolder.includes('..')) {
+    errors.push('上传目录格式不正确！');
   }
 
   return {
