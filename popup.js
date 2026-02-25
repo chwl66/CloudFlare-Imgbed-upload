@@ -78,8 +78,11 @@ async function saveFormConfig() {
     }
     
     // 使用公共保存函数，传入原始配置用于处理掩码值
-    await saveConfig(config, originalConfig);
-    
+    const savedConfig = await saveConfig(config, originalConfig);
+
+    // 使用保存后的规范化配置覆盖本地快照
+    originalConfig = { ...originalConfig, ...savedConfig };
+
     // 更新原始配置（如果认证码被修改了）
     const authCodeElement = document.getElementById('authCode');
     if (authCodeElement && !isMaskedValue(config.authCode)) {
