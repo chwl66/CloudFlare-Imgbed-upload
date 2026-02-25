@@ -29,9 +29,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 通用的消息发送函数，使用 Promise 包装
-function sendMessageToBackground(message) {
+function sendMessageToBackground(message, options = {}) {
+  const timeoutMs = Number.isFinite(options.timeoutMs)
+    ? options.timeoutMs
+    : (typeof CONSTANTS !== 'undefined' ? CONSTANTS.CONNECTION_TIMEOUT : 15000);
+
   return new Promise((resolve) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({ success: false, error: `请求超时（${timeoutMs}ms）` });
+    }, timeoutMs);
+
     chrome.runtime.sendMessage(message, (response) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+
       if (chrome.runtime.lastError) {
         console.error('Chrome runtime error:', chrome.runtime.lastError);
         resolve({ success: false, error: chrome.runtime.lastError.message });
