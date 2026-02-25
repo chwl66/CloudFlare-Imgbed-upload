@@ -321,9 +321,15 @@ async function migrateConfigIfNeeded(config) {
     config.apiUrl = normalizeApiUrlValue(config.apiUrl);
   }
   
-  // 保存新版本
+  // 保存迁移后的配置与新版本（仅 sync 非敏感字段）
   config._version = CONFIG_VERSION;
-  await chrome.storage.sync.set({ _version: CONFIG_VERSION });
+
+  const migratedSyncConfig = { _version: CONFIG_VERSION };
+  SYNC_CONFIG_KEYS.forEach(key => {
+    migratedSyncConfig[key] = config[key];
+  });
+
+  await chrome.storage.sync.set(migratedSyncConfig);
 }
 
 // 获取敏感信息的掩码版本
