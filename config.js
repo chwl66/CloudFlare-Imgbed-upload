@@ -8,14 +8,15 @@ const DEFAULT_CONFIG = {
   autoRetry: true,
   uploadNameType: 'default',
   uploadFolder: '',
-  uploadTimeout: 60000 // 上传超时时间（毫秒）
+  uploadTimeout: 60000, // 上传超时时间（毫秒）
+  returnFormat: 'full'
 };
 
 // 配置键列表
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
 
 // 配置版本管理
-const CONFIG_VERSION = '1.1.0';
+const CONFIG_VERSION = '1.2.0';
 
 // 认证码掩码标记
 const AUTH_CODE_MASK_MARKER = '••••••';
@@ -91,13 +92,18 @@ function validateConfig(config) {
   }
   
   // 上传渠道验证
-  if (!['telegram', 'cfr2', 's3'].includes(config.uploadChannel)) {
+  if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(config.uploadChannel)) {
     errors.push('无效的上传渠道！');
   }
-  
+
   // 文件命名方式验证
-  if (!['default', 'index', 'origin', 'short'].includes(config.uploadNameType)) {
+  if (!CONSTANTS.VALID_NAME_TYPES.includes(config.uploadNameType)) {
     errors.push('无效的文件命名方式！');
+  }
+
+  // 返回格式验证
+  if (!CONSTANTS.VALID_RETURN_FORMATS.includes(config.returnFormat)) {
+    errors.push('无效的返回格式！');
   }
   
   // 上传目录验证（如果提供）
@@ -154,6 +160,12 @@ async function migrateConfigIfNeeded(config) {
     // 确保新增字段有默认值
     if (config.uploadTimeout === undefined) {
       config.uploadTimeout = CONSTANTS.UPLOAD_TIMEOUT;
+    }
+  }
+
+  if (compareVersions(currentVersion, '1.2.0') < 0) {
+    if (!config.returnFormat || !CONSTANTS.VALID_RETURN_FORMATS.includes(config.returnFormat)) {
+      config.returnFormat = 'full';
     }
   }
   

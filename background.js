@@ -214,7 +214,7 @@ function buildUploadUrl(config) {
     uploadChannel: config.uploadChannel,
     autoRetry: config.autoRetry,
     uploadNameType: config.uploadNameType,
-    returnFormat: 'full'
+    returnFormat: config.returnFormat || 'full'
   });
   
   if (config.authCode && config.authCode.trim()) {
