@@ -72,7 +72,7 @@ async function handleImageUpload(imageUrl) {
   let response = null;
   let reader = null;
 
-  showUploadingStatus('上传中...');
+  showUploadingStatus('图片上传中...');
 
   try {
     console.log('正在上传图片...', imageUrl);
@@ -238,7 +238,7 @@ function convertImageToBlob(imageUrl) {
 async function handleClipboardUpload() {
   let reader = null;
 
-  showUploadingStatus('上传中...');
+  showUploadingStatus('剪贴板图片上传中...');
 
   try {
     const clipboardItems = await navigator.clipboard.read();
@@ -429,7 +429,7 @@ function removeCurrentResultNotification() {
   }
 }
 
-function showUploadingStatus(message = '上传中...') {
+function showUploadingStatus(message = '图片上传中...') {
   removeCurrentResultNotification();
 
   const notification = document.createElement('div');
