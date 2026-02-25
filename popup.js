@@ -110,8 +110,8 @@ async function testConnection() {
   let authCode = authCodeInput;
 
   // 认证码掩码值恢复为原始值，避免测试连接误用掩码字符
-  if (isMaskedValue(authCodeInput) && originalConfig?.authCode) {
-    authCode = originalConfig.authCode;
+  if (isMaskedValue(authCodeInput)) {
+    authCode = originalConfig?.authCode ?? DEFAULT_CONFIG.authCode;
   }
 
   if (!apiUrl) {
