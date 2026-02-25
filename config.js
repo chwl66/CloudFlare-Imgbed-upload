@@ -301,8 +301,8 @@ async function migrateConfigIfNeeded(config) {
   // 根据版本执行迁移逻辑
   if (compareVersions(currentVersion, '1.0.0') < 0) {
     // 迁移到1.0.0的逻辑
-    if (config.apiUrl === 'https://your.domain') {
-      config.apiUrl = ''; // 重置无效的默认值
+    if (isInvalidApiHost(config.apiUrl)) {
+      config.apiUrl = ''; // 重置无效的占位地址
     }
     // 确保新增字段有默认值
     if (config.uploadTimeout === undefined) {
