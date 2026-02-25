@@ -30,9 +30,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 通用的消息发送函数，使用 Promise 包装
 function sendMessageToBackground(message, options = {}) {
+  const isUploadAction = message && (message.action === 'uploadFile' || message.action === 'uploadImageUrl');
+  const defaultTimeoutMs = isUploadAction
+    ? (typeof CONSTANTS !== 'undefined' ? CONSTANTS.UPLOAD_TIMEOUT : 60000)
+    : (typeof CONSTANTS !== 'undefined' ? CONSTANTS.CONNECTION_TIMEOUT : 15000);
+
   const timeoutMs = Number.isFinite(options.timeoutMs)
     ? options.timeoutMs
-    : (typeof CONSTANTS !== 'undefined' ? CONSTANTS.CONNECTION_TIMEOUT : 15000);
+    : defaultTimeoutMs;
 
   return new Promise((resolve) => {
     let settled = false;
