@@ -20,6 +20,7 @@ const CONFIG_VERSION = '1.2.0';
 
 // 认证码掩码标记
 const AUTH_CODE_MASK_MARKER = '••••••';
+const INVALID_API_HOSTS = ['your.domain'];
 
 // 获取配置
 async function getConfig() {
@@ -88,6 +89,8 @@ function validateConfig(config) {
       const url = new URL(normalized.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         errors.push('API 地址必须使用 HTTP 或 HTTPS 协议！');
+      } else if (INVALID_API_HOSTS.includes(url.hostname.toLowerCase())) {
+        errors.push('请填写真实 API 地址，不能使用示例域名！');
       }
     } catch {
       errors.push('API 地址格式不正确！');
@@ -224,6 +227,17 @@ function normalizeConfig(config = {}) {
   normalized.apiUrl = typeof normalized.apiUrl === 'string' ? normalized.apiUrl.trim() : '';
   normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
   normalized.uploadFolder = typeof normalized.uploadFolder === 'string' ? normalized.uploadFolder.trim() : '';
+
+  if (normalized.apiUrl) {
+    try {
+      const parsedUrl = new URL(normalized.apiUrl);
+      if (INVALID_API_HOSTS.includes(parsedUrl.hostname.toLowerCase())) {
+        normalized.apiUrl = '';
+      }
+    } catch {
+      // 非法 URL 保留给 validateConfig 报错
+    }
+  }
 
   normalized.serverCompress = Boolean(normalized.serverCompress);
   normalized.autoRetry = Boolean(normalized.autoRetry);
