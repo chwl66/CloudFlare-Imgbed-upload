@@ -301,10 +301,20 @@ function normalizeConfig(config = {}) {
       const parsedUrl = new URL(normalized.apiUrl);
       if (INVALID_API_HOSTS.includes(parsedUrl.hostname.toLowerCase())) {
         normalized.apiUrl = '';
+      } else {
+        normalized.apiUrl = parsedUrl.toString().replace(/\/$/, '');
       }
     } catch {
       // 非法 URL 保留给 validateConfig 报错
     }
+  }
+
+  if (normalized.uploadFolder) {
+    // 统一分隔符与边界，避免出现 // 或首尾 /
+    normalized.uploadFolder = normalized.uploadFolder
+      .replace(/\\+/g, '/')
+      .replace(/\/+/g, '/')
+      .replace(/^\/+|\/+$/g, '');
   }
 
   normalized.serverCompress = Boolean(normalized.serverCompress);
