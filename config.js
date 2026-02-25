@@ -25,11 +25,11 @@ const AUTH_CODE_MASK_MARKER = '••••••';
 async function getConfig() {
   const config = await chrome.storage.sync.get(CONFIG_KEYS);
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  
+
   // 检查配置版本，必要时进行迁移
   await migrateConfigIfNeeded(mergedConfig);
-  
-  return mergedConfig;
+
+  return normalizeConfig(mergedConfig);
 }
 
 // 保存配置
@@ -76,13 +76,14 @@ function isMaskedValue(value) {
 // 验证配置（使用工具函数）
 function validateConfig(config) {
   const errors = [];
-  
+  const normalized = normalizeConfig(config);
+
   // API 地址验证
-  if (!config.apiUrl) {
+  if (!normalized.apiUrl) {
     errors.push('请输入 API 地址！');
   } else {
     try {
-      const url = new URL(config.apiUrl);
+      const url = new URL(normalized.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         errors.push('API 地址必须使用 HTTP 或 HTTPS 协议！');
       }
@@ -90,30 +91,30 @@ function validateConfig(config) {
       errors.push('API 地址格式不正确！');
     }
   }
-  
+
   // 上传渠道验证
-  if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(config.uploadChannel)) {
+  if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(normalized.uploadChannel)) {
     errors.push('无效的上传渠道！');
   }
 
   // 文件命名方式验证
-  if (!CONSTANTS.VALID_NAME_TYPES.includes(config.uploadNameType)) {
+  if (!CONSTANTS.VALID_NAME_TYPES.includes(normalized.uploadNameType)) {
     errors.push('无效的文件命名方式！');
   }
 
   // 返回格式验证
-  if (!CONSTANTS.VALID_RETURN_FORMATS.includes(config.returnFormat)) {
+  if (!CONSTANTS.VALID_RETURN_FORMATS.includes(normalized.returnFormat)) {
     errors.push('无效的返回格式！');
   }
-  
+
   // 上传目录验证（如果提供）
-  if (config.uploadFolder) {
+  if (normalized.uploadFolder) {
     // 检查路径格式
-    if (config.uploadFolder.includes('..') || config.uploadFolder.includes('//')) {
+    if (normalized.uploadFolder.includes('..') || normalized.uploadFolder.includes('//')) {
       errors.push('上传目录格式不正确！');
     }
   }
-  
+
   return {
     valid: errors.length === 0,
     errors
@@ -202,8 +203,46 @@ function getConfigSummary(config) {
     hasAuthCode: !!config.authCode,
     uploadChannel: config.uploadChannel,
     uploadNameType: config.uploadNameType,
+    returnFormat: config.returnFormat,
     hasUploadFolder: !!config.uploadFolder,
     serverCompress: config.serverCompress,
     autoRetry: config.autoRetry
   };
+}
+
+/**
+ * 规范化配置值（类型归一 + 默认值回退）
+ * @param {Object} config - 原始配置
+ * @returns {Object} 规范化后的配置
+ */
+function normalizeConfig(config = {}) {
+  const normalized = { ...DEFAULT_CONFIG, ...config };
+
+  normalized.apiUrl = typeof normalized.apiUrl === 'string' ? normalized.apiUrl.trim() : '';
+  normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
+  normalized.uploadFolder = typeof normalized.uploadFolder === 'string' ? normalized.uploadFolder.trim() : '';
+
+  normalized.serverCompress = Boolean(normalized.serverCompress);
+  normalized.autoRetry = Boolean(normalized.autoRetry);
+
+  if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(normalized.uploadChannel)) {
+    normalized.uploadChannel = DEFAULT_CONFIG.uploadChannel;
+  }
+
+  if (!CONSTANTS.VALID_NAME_TYPES.includes(normalized.uploadNameType)) {
+    normalized.uploadNameType = DEFAULT_CONFIG.uploadNameType;
+  }
+
+  if (!CONSTANTS.VALID_RETURN_FORMATS.includes(normalized.returnFormat)) {
+    normalized.returnFormat = DEFAULT_CONFIG.returnFormat;
+  }
+
+  const timeout = Number(normalized.uploadTimeout);
+  if (!Number.isFinite(timeout)) {
+    normalized.uploadTimeout = DEFAULT_CONFIG.uploadTimeout;
+  } else {
+    normalized.uploadTimeout = Math.max(10000, Math.min(300000, Math.floor(timeout)));
+  }
+
+  return normalized;
 }
