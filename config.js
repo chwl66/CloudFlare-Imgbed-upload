@@ -19,7 +19,7 @@ const SENSITIVE_CONFIG_KEYS = ['authCode'];
 const SYNC_CONFIG_KEYS = CONFIG_KEYS.filter(key => !SENSITIVE_CONFIG_KEYS.includes(key));
 
 // 配置版本管理
-const CONFIG_VERSION = '1.2.0';
+const CONFIG_VERSION = '1.3.0';
 
 // 认证码掩码标记
 const AUTH_CODE_MASK_MARKER = '••••••';
@@ -254,6 +254,29 @@ async function migrateConfigIfNeeded(config) {
   if (compareVersions(currentVersion, '1.2.0') < 0) {
     if (!config.returnFormat || !CONSTANTS.VALID_RETURN_FORMATS.includes(config.returnFormat)) {
       config.returnFormat = 'full';
+    }
+  }
+
+  if (compareVersions(currentVersion, '1.3.0') < 0) {
+    if (typeof config.uploadFolder === 'string' && config.uploadFolder.trim()) {
+      config.uploadFolder = config.uploadFolder
+        .trim()
+        .replace(/\\+/g, '/')
+        .replace(/\/+/g, '/')
+        .replace(/^\/+|\/+$/g, '');
+    }
+
+    if (typeof config.apiUrl === 'string' && config.apiUrl.trim()) {
+      try {
+        const parsedUrl = new URL(config.apiUrl.trim());
+        if (isInvalidApiHost(parsedUrl.toString())) {
+          config.apiUrl = '';
+        } else {
+          config.apiUrl = parsedUrl.toString().replace(/\/$/, '');
+        }
+      } catch {
+        // 非法 URL 交给运行时校验处理
+      }
     }
   }
   
