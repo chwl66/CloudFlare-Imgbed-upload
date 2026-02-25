@@ -368,7 +368,7 @@ async function uploadFile(fileData, fileName) {
     log('debug', '发送上传请求', { url: uploadUrl, fileSize: blob.size });
     
     // 根据配置决定是否使用重试
-    const uploadTimeout = config.uploadTimeout ?? DEFAULT_CONFIG.uploadTimeout;
+    const uploadTimeout = config.uploadTimeout;
     let uploadResponse;
     
     if (config.autoRetry) {
