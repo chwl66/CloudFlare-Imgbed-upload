@@ -312,7 +312,7 @@ async function migrateConfigIfNeeded(config) {
 
   if (compareVersions(currentVersion, '1.2.0') < 0) {
     if (!config.returnFormat || !CONSTANTS.VALID_RETURN_FORMATS.includes(config.returnFormat)) {
-      config.returnFormat = 'full';
+      config.returnFormat = DEFAULT_CONFIG.returnFormat;
     }
   }
 

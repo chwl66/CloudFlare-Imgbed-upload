@@ -162,9 +162,14 @@ async function performUploadTest(apiUrl, authCode) {
   formData.append('file', blob, 'test.png');
   
   const uploadChannel = document.getElementById('uploadChannel').value;
+  const uploadNameType = document.getElementById('uploadNameType').value;
+  const returnFormat = typeof originalConfig?.returnFormat === 'string'
+    ? originalConfig.returnFormat
+    : DEFAULT_CONFIG.returnFormat;
   const params = new URLSearchParams({
-    uploadChannel: uploadChannel,
-    uploadNameType: 'short' // 使用短链接避免文件名冲突
+    uploadChannel,
+    uploadNameType,
+    returnFormat
   });
   
   // 只有当认证码不为空时才添加
