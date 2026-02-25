@@ -82,13 +82,11 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.storage.local.get(SENSITIVE_CONFIG_KEYS)
   ]);
 
-  const { authCode, ...syncDefaults } = DEFAULT_CONFIG;
-  const mergedSyncConfig = { ...syncDefaults };
+  const normalizedConfig = normalizeConfig({ ...syncData, ...localData });
+  const mergedSyncConfig = {};
 
   SYNC_CONFIG_KEYS.forEach(key => {
-    if (syncData[key] !== undefined) {
-      mergedSyncConfig[key] = syncData[key];
-    }
+    mergedSyncConfig[key] = normalizedConfig[key];
   });
 
   mergedSyncConfig._version = CONFIG_VERSION;
