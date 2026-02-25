@@ -119,34 +119,20 @@ chrome.runtime.onInstalled.addListener(async () => {
 function createContextMenus() {
   // 清除现有菜单
   chrome.contextMenus.removeAll(() => {
-    // 图片右键菜单
+    // 图片右键菜单（一级）
     chrome.contextMenus.create({
       id: 'upload-image',
       title: '上传图片到 ImgBed',
       contexts: ['image']
     });
-    
-    // 页面右键菜单 - 上传剪贴板图片
+
+    // 页面右键菜单（一级）
     chrome.contextMenus.create({
       id: 'upload-clipboard',
       title: '上传剪贴板图片到 ImgBed',
       contexts: ['page']
     });
-    
-    // 分隔符
-    chrome.contextMenus.create({
-      id: 'separator',
-      type: 'separator',
-      contexts: ['page', 'image']
-    });
-    
-    // 配置菜单
-    chrome.contextMenus.create({
-      id: 'open-config',
-      title: 'ImgBed 配置',
-      contexts: ['page', 'image']
-    });
-    
+
     log('debug', '右键菜单已创建');
   });
 }
