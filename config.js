@@ -39,6 +39,42 @@ function isInvalidApiHost(apiUrl) {
   }
 }
 
+/**
+ * 规范化 API 地址
+ * @param {string} apiUrl
+ * @returns {string}
+ */
+function normalizeApiUrlValue(apiUrl) {
+  const trimmed = typeof apiUrl === 'string' ? apiUrl.trim() : '';
+  if (!trimmed) return '';
+
+  try {
+    const parsedUrl = new URL(trimmed);
+    if (isInvalidApiHost(parsedUrl.toString())) {
+      return '';
+    }
+    return parsedUrl.toString().replace(/\/$/, '');
+  } catch {
+    // 非法 URL 保留原值，交由 validateConfig 报错
+    return trimmed;
+  }
+}
+
+/**
+ * 规范化上传目录
+ * @param {string} uploadFolder
+ * @returns {string}
+ */
+function normalizeUploadFolderValue(uploadFolder) {
+  const trimmed = typeof uploadFolder === 'string' ? uploadFolder.trim() : '';
+  if (!trimmed) return '';
+
+  return trimmed
+    .replace(/\\+/g, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+}
+
 // 获取配置
 async function getConfig() {
   const [syncData, localData] = await Promise.all([
@@ -258,26 +294,8 @@ async function migrateConfigIfNeeded(config) {
   }
 
   if (compareVersions(currentVersion, '1.3.0') < 0) {
-    if (typeof config.uploadFolder === 'string' && config.uploadFolder.trim()) {
-      config.uploadFolder = config.uploadFolder
-        .trim()
-        .replace(/\\+/g, '/')
-        .replace(/\/+/g, '/')
-        .replace(/^\/+|\/+$/g, '');
-    }
-
-    if (typeof config.apiUrl === 'string' && config.apiUrl.trim()) {
-      try {
-        const parsedUrl = new URL(config.apiUrl.trim());
-        if (isInvalidApiHost(parsedUrl.toString())) {
-          config.apiUrl = '';
-        } else {
-          config.apiUrl = parsedUrl.toString().replace(/\/$/, '');
-        }
-      } catch {
-        // 非法 URL 交给运行时校验处理
-      }
-    }
+    config.uploadFolder = normalizeUploadFolderValue(config.uploadFolder);
+    config.apiUrl = normalizeApiUrlValue(config.apiUrl);
   }
   
   // 保存新版本
@@ -329,30 +347,9 @@ function getConfigSummary(config) {
 function normalizeConfig(config = {}) {
   const normalized = { ...DEFAULT_CONFIG, ...config };
 
-  normalized.apiUrl = typeof normalized.apiUrl === 'string' ? normalized.apiUrl.trim() : '';
+  normalized.apiUrl = normalizeApiUrlValue(normalized.apiUrl);
   normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
-  normalized.uploadFolder = typeof normalized.uploadFolder === 'string' ? normalized.uploadFolder.trim() : '';
-
-  if (normalized.apiUrl) {
-    try {
-      const parsedUrl = new URL(normalized.apiUrl);
-      if (isInvalidApiHost(normalized.apiUrl)) {
-        normalized.apiUrl = '';
-      } else {
-        normalized.apiUrl = parsedUrl.toString().replace(/\/$/, '');
-      }
-    } catch {
-      // 非法 URL 保留给 validateConfig 报错
-    }
-  }
-
-  if (normalized.uploadFolder) {
-    // 统一分隔符与边界，避免出现 // 或首尾 /
-    normalized.uploadFolder = normalized.uploadFolder
-      .replace(/\\+/g, '/')
-      .replace(/\/+/g, '/')
-      .replace(/^\/+|\/+$/g, '');
-  }
+  normalized.uploadFolder = normalizeUploadFolderValue(normalized.uploadFolder);
 
   normalized.serverCompress = Boolean(normalized.serverCompress);
   normalized.autoRetry = Boolean(normalized.autoRetry);
