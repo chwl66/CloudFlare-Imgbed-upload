@@ -292,7 +292,7 @@ function validateApiUrlInput(input) {
   
   try {
     const url = new URL(value);
-    if (!['http:', 'https:'].includes(url.protocol)) {
+    if (!VALID_API_PROTOCOLS.includes(url.protocol)) {
       input.style.borderColor = '#ef4444';
     } else {
       input.style.borderColor = '#10b981';
