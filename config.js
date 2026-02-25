@@ -75,6 +75,29 @@ function normalizeUploadFolderValue(uploadFolder) {
     .replace(/^\/+|\/+$/g, '');
 }
 
+/**
+ * 规范化布尔配置值
+ * @param {any} value
+ * @param {boolean} defaultValue
+ * @returns {boolean}
+ */
+function normalizeBooleanValue(value, defaultValue) {
+  if (typeof value === 'boolean') return value;
+
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === 'true') return true;
+    if (lowered === 'false') return false;
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+
+  return defaultValue;
+}
+
 // 获取配置
 async function getConfig() {
   const [syncData, localData] = await Promise.all([
@@ -351,8 +374,8 @@ function normalizeConfig(config = {}) {
   normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
   normalized.uploadFolder = normalizeUploadFolderValue(normalized.uploadFolder);
 
-  normalized.serverCompress = Boolean(normalized.serverCompress);
-  normalized.autoRetry = Boolean(normalized.autoRetry);
+  normalized.serverCompress = normalizeBooleanValue(normalized.serverCompress, DEFAULT_CONFIG.serverCompress);
+  normalized.autoRetry = normalizeBooleanValue(normalized.autoRetry, DEFAULT_CONFIG.autoRetry);
 
   if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(normalized.uploadChannel)) {
     normalized.uploadChannel = DEFAULT_CONFIG.uploadChannel;
