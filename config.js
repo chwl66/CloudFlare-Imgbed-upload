@@ -27,6 +27,7 @@ const CONFIG_VERSION = '1.3.0';
 // 认证码掩码标记
 const AUTH_CODE_MASK_MARKER = '••••••';
 const INVALID_API_HOSTS = ['your.domain'];
+const VALID_API_PROTOCOLS = ['http:', 'https:'];
 
 /**
  * 判断 API 地址是否为示例占位域名
@@ -218,7 +219,7 @@ function validateConfig(config) {
   } else {
     try {
       const url = new URL(normalized.apiUrl);
-      if (!['http:', 'https:'].includes(url.protocol)) {
+      if (!VALID_API_PROTOCOLS.includes(url.protocol)) {
         errors.push('API 地址必须使用 HTTP 或 HTTPS 协议！');
       } else if (isInvalidApiHost(normalized.apiUrl)) {
         errors.push('请填写真实 API 地址，不能使用示例域名！');
