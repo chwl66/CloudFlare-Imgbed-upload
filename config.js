@@ -306,7 +306,7 @@ async function migrateConfigIfNeeded(config) {
     }
     // 确保新增字段有默认值
     if (config.uploadTimeout === undefined) {
-      config.uploadTimeout = CONSTANTS.UPLOAD_TIMEOUT;
+      config.uploadTimeout = DEFAULT_CONFIG.uploadTimeout;
     }
   }
 
