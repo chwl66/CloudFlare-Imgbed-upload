@@ -6,20 +6,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 使用立即执行的异步函数处理消息
   (async () => {
     try {
+      let messageResult = { success: true };
+
       switch (request.action) {
         case 'uploadImage':
           await handleImageUpload(request.imageUrl);
           break;
-          
+
         case 'uploadClipboard':
-          await handleClipboardUpload();
+          messageResult = await handleClipboardUpload();
           break;
-          
+
         case 'copyText':
           await copyToClipboard(request.text);
           break;
       }
-      sendResponse({ success: true });
+
+      sendResponse(messageResult);
     } catch (error) {
       console.error('消息处理错误:', error);
       sendResponse({ success: false, error: error.message });
@@ -27,6 +30,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   })();
   return true; // 保持消息通道开放以支持异步响应
 });
+
 
 // 通用的消息发送函数，使用 Promise 包装
 function sendMessageToBackground(message, options = {}) {
@@ -248,62 +252,61 @@ async function handleClipboardUpload() {
         // 验证图片文件
         await validateImageFile(blob);
 
-        reader = new FileReader();
+        const fileName = `clipboard-image.${imageType.split('/')[1]}`;
+        const fileData = await new Promise((resolve, reject) => {
+          const localReader = new FileReader();
+          reader = localReader;
+          localReader.onload = () => resolve(localReader.result);
+          localReader.onerror = () => reject(new Error('剪贴板文件读取失败'));
+          localReader.readAsDataURL(blob);
+        });
 
-        reader.onload = async function() {
-          try {
-            const fileName = `clipboard-image.${imageType.split('/')[1]}`;
+        console.log('正在上传剪贴板图片...');
 
-            console.log('正在上传剪贴板图片...');
+        // 使用 Promise 包装的消息发送
+        const uploadResponse = await sendMessageToBackground({
+          action: 'uploadFile',
+          fileData,
+          fileName
+        });
 
-            // 使用 Promise 包装的消息发送
-            const uploadResponse = await sendMessageToBackground({
-              action: 'uploadFile',
-              fileData: reader.result,
-              fileName: fileName
-            });
+        console.log('收到响应:', uploadResponse);
 
-            console.log('收到响应:', uploadResponse);
+        if (uploadResponse.success) {
+          // 显示成功结果
+          showUploadResult(uploadResponse.result, 'success');
+          console.log('上传成功:', uploadResponse.result);
+          return { success: true };
+        }
 
-            if (uploadResponse.success) {
-              // 显示成功结果
-              showUploadResult(uploadResponse.result, 'success');
-              console.log('上传成功:', uploadResponse.result);
-            } else {
-              showUploadResult({ error: uploadResponse.error }, 'error');
-              console.error('上传失败:', uploadResponse.error);
-            }
-          } finally {
-            reader = null;
-          }
-        };
-
-        reader.onerror = function() {
-          showUploadResult({ error: '剪贴板文件读取失败' }, 'error');
-          console.error('FileReader 读取失败');
-          reader = null;
-        };
-
-        reader.readAsDataURL(blob);
-        return;
+        const errorMessage = uploadResponse.error || '上传失败';
+        showUploadResult({ error: errorMessage }, 'error');
+        console.error('上传失败:', errorMessage);
+        return { success: false, error: errorMessage };
       }
     }
 
     console.log('剪贴板中没有图片');
-    showUploadResult({ error: '剪贴板中没有图片数据' }, 'error');
+    const noImageError = '剪贴板中没有图片数据';
+    showUploadResult({ error: noImageError }, 'error');
+    return { success: false, error: noImageError };
 
   } catch (error) {
     console.log('无法访问剪贴板');
     console.error('剪贴板访问错误:', error);
 
     // 提供用户友好的错误提示
+    let errorMessage;
     if (error.name === 'NotAllowedError') {
-      showUploadResult({ error: '剪贴板访问被拒绝，请检查浏览器权限设置' }, 'error');
+      errorMessage = '剪贴板访问被拒绝，请检查浏览器权限设置';
     } else if (error.name === 'NotFoundError') {
-      showUploadResult({ error: '剪贴板中没有图片数据' }, 'error');
+      errorMessage = '剪贴板中没有图片数据';
     } else {
-      showUploadResult({ error: '剪贴板访问失败，请重试' }, 'error');
+      errorMessage = error.message || '剪贴板访问失败，请重试';
     }
+
+    showUploadResult({ error: errorMessage }, 'error');
+    return { success: false, error: errorMessage };
   } finally {
     // 清理资源
     if (reader) {
@@ -449,9 +452,47 @@ function showUploadingStatus(message = '上传中...') {
   resultNotification = notification;
 }
 
+function createFallbackResultNotification(result, type) {
+  const notification = document.createElement('div');
+  const isSuccess = type === 'success';
+  const message = isSuccess
+    ? '上传成功'
+    : `上传失败：${result?.error || '未知错误'}`;
+
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${isSuccess ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)'};
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    z-index: 10001;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 360px;
+    word-break: break-word;
+  `;
+  notification.textContent = message;
+
+  document.body.appendChild(notification);
+  return notification;
+}
+
 function showUploadResult(result, type) {
   removeCurrentResultNotification();
-  resultNotification = createResultNotification(result, type);
+
+  try {
+    if (typeof createResultNotification === 'function') {
+      resultNotification = createResultNotification(result, type);
+    } else {
+      resultNotification = createFallbackResultNotification(result, type);
+    }
+  } catch (error) {
+    console.error('显示上传结果通知失败，使用兜底通知:', error);
+    resultNotification = createFallbackResultNotification(result, type);
+  }
 }
 
 // 显示防盗链错误的特殊处理
