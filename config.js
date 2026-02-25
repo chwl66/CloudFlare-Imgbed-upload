@@ -34,27 +34,29 @@ async function getConfig() {
 
 // 保存配置
 async function saveConfig(config, originalConfig = null) {
+  const normalizedConfig = normalizeConfig(config);
+
   // 使用工具函数验证配置
-  const validation = validateConfig(config);
+  const validation = validateConfig(normalizedConfig);
   if (!validation.valid) {
     throw new Error(validation.errors.join('; '));
   }
-  
+
   const validConfig = {};
   CONFIG_KEYS.forEach(key => {
-    if (config.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(normalizedConfig, key)) {
       // 特殊处理认证码：如果是掩码值，保留原值
-      if (key === 'authCode' && isMaskedValue(config[key]) && originalConfig) {
+      if (key === 'authCode' && isMaskedValue(normalizedConfig[key]) && originalConfig) {
         validConfig[key] = originalConfig[key];
       } else {
-        validConfig[key] = config[key];
+        validConfig[key] = normalizedConfig[key];
       }
     }
   });
-  
+
   // 添加版本信息
   validConfig._version = CONFIG_VERSION;
-  
+
   await chrome.storage.sync.set(validConfig);
   return validConfig;
 }
@@ -193,7 +195,8 @@ function getMaskedConfig(config) {
 // 检查配置完整性
 function isConfigComplete(config) {
   const requiredFields = ['apiUrl'];
-  return requiredFields.every(field => config[field] && config[field].trim() !== '');
+  const normalized = normalizeConfig(config);
+  return requiredFields.every(field => normalized[field] && normalized[field].trim() !== '');
 }
 
 // 获取配置摘要（用于日志）
