@@ -161,9 +161,7 @@ async function performUploadTest(apiUrl, authCode) {
   
   const uploadChannel = document.getElementById('uploadChannel').value;
   const uploadNameType = document.getElementById('uploadNameType').value;
-  const returnFormat = typeof originalConfig?.returnFormat === 'string'
-    ? originalConfig.returnFormat
-    : DEFAULT_CONFIG.returnFormat;
+  const returnFormat = originalConfig?.returnFormat ?? DEFAULT_CONFIG.returnFormat;
   const params = new URLSearchParams({
     uploadChannel,
     uploadNameType,
