@@ -33,7 +33,7 @@ async function loadConfig() {
           element.dataset.isMasked = 'true';
         } else if (key === 'uploadTimeout') {
           // 超时时间转换为秒显示
-          element.value = Math.round((mergedConfig[key] || 60000) / 1000);
+          element.value = Math.round((mergedConfig[key] || DEFAULT_CONFIG.uploadTimeout) / 1000);
         } else {
           element.value = maskedConfig[key];
         }
