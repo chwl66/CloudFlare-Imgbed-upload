@@ -100,18 +100,31 @@ async function saveFormConfig() {
 
 // 测试连接（改进版本）
 async function testConnection() {
-  const apiUrl = document.getElementById('apiUrl').value.trim();
-  const authCode = document.getElementById('authCode').value.trim();
-  
+  const apiUrlInput = document.getElementById('apiUrl').value.trim();
+  const authCodeInput = document.getElementById('authCode').value.trim();
+
+  const apiUrl = typeof normalizeApiUrlValue === 'function' ? normalizeApiUrlValue(apiUrlInput) : apiUrlInput;
+  let authCode = authCodeInput;
+
+  // 认证码掩码值恢复为原始值，避免测试连接误用掩码字符
+  if (isMaskedValue(authCodeInput) && originalConfig && originalConfig.authCode) {
+    authCode = originalConfig.authCode;
+  }
+
   if (!apiUrl) {
     showStatus('请先填写 API 地址！', 'error');
     return;
   }
-  
+
+  if (typeof isInvalidApiHost === 'function' && isInvalidApiHost(apiUrl)) {
+    showStatus('请填写真实 API 地址，不能使用示例域名！', 'error');
+    return;
+  }
+
   try {
     showStatus('正在测试连接...', 'info');
     hideUploadProgress();
-    
+
     // 首先尝试简单的健康检查
     const healthCheckUrl = `${apiUrl.replace(/\/$/, '')}/health`;
     try {
@@ -119,7 +132,7 @@ async function testConnection() {
         method: 'HEAD',
         headers: authCode ? { 'Authorization': `Bearer ${authCode}` } : {}
       }, CONSTANTS.TEST_TIMEOUT);
-      
+
       if (healthResponse.ok) {
         showStatus('连接测试成功！', 'success');
         return;
@@ -127,10 +140,10 @@ async function testConnection() {
     } catch (healthError) {
       console.log('健康检查失败，尝试上传测试:', healthError.message);
     }
-    
+
     // 如果健康检查失败，进行上传测试
     await performUploadTest(apiUrl, authCode);
-    
+
   } catch (error) {
     const friendlyMessage = getFriendlyErrorMessage(error);
     showStatus(`连接测试失败: ${friendlyMessage}`, 'error');
