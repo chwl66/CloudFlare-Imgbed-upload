@@ -25,6 +25,20 @@ const CONFIG_VERSION = '1.2.0';
 const AUTH_CODE_MASK_MARKER = '••••••';
 const INVALID_API_HOSTS = ['your.domain'];
 
+/**
+ * 判断 API 地址是否为示例占位域名
+ * @param {string} apiUrl
+ * @returns {boolean}
+ */
+function isInvalidApiHost(apiUrl) {
+  try {
+    const parsed = new URL(apiUrl);
+    return INVALID_API_HOSTS.includes(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 // 获取配置
 async function getConfig() {
   const [syncData, localData] = await Promise.all([
@@ -144,7 +158,7 @@ function validateConfig(config) {
       const url = new URL(normalized.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         errors.push('API 地址必须使用 HTTP 或 HTTPS 协议！');
-      } else if (INVALID_API_HOSTS.includes(url.hostname.toLowerCase())) {
+      } else if (isInvalidApiHost(normalized.apiUrl)) {
         errors.push('请填写真实 API 地址，不能使用示例域名！');
       }
     } catch {
@@ -299,7 +313,7 @@ function normalizeConfig(config = {}) {
   if (normalized.apiUrl) {
     try {
       const parsedUrl = new URL(normalized.apiUrl);
-      if (INVALID_API_HOSTS.includes(parsedUrl.hostname.toLowerCase())) {
+      if (isInvalidApiHost(normalized.apiUrl)) {
         normalized.apiUrl = '';
       } else {
         normalized.apiUrl = parsedUrl.toString().replace(/\/$/, '');
