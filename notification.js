@@ -1,29 +1,104 @@
-// 简化的通知功能
+// 公共工具模块通过 manifest.json 的 content_scripts 配置加载
+// utils.js 在此脚本之前加载，其中定义的函数在全局作用域可用
+
+// ==================== 通知模块 ====================
+// 提供上传结果通知和复制反馈功能
+
+/**
+ * 通知管理器类
+ */
+class NotificationManager {
+  static activeNotifications = new Set();
+  static MAX_NOTIFICATIONS = 3;
+  
+  /**
+   * 添加通知
+   * @param {HTMLElement} notification - 通知元素
+   */
+  static add(notification) {
+    // 限制同时显示的通知数量
+    if (this.activeNotifications.size >= this.MAX_NOTIFICATIONS) {
+      const oldest = this.activeNotifications.values().next().value;
+      this.remove(oldest);
+    }
+    
+    this.activeNotifications.add(notification);
+    this.updateNotificationPositions();
+  }
+  
+  /**
+   * 移除通知
+   * @param {HTMLElement} notification - 通知元素
+   */
+  static remove(notification) {
+    this.activeNotifications.delete(notification);
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+    this.updateNotificationPositions();
+  }
+  
+  /**
+   * 清理所有通知
+   */
+  static clearAll() {
+    this.activeNotifications.forEach(notification => {
+      this.remove(notification);
+    });
+  }
+  
+  /**
+   * 更新通知位置
+   */
+  static updateNotificationPositions() {
+    const notifications = Array.from(this.activeNotifications);
+    notifications.forEach((notification, index) => {
+      const topOffset = 20 + (index * 120);
+      notification.style.top = `${topOffset}px`;
+    });
+  }
+  
+  /**
+   * 获取通知位置
+   * @returns {Object} 位置信息
+   */
+  static getNotificationPosition() {
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight
+    };
+    
+    // 检查现有通知的位置
+    const existingCount = this.activeNotifications.size;
+    const topOffset = 20 + (existingCount * 120);
+    
+    // 确保不超出视窗
+    const maxTop = viewport.height - 200;
+    const finalTop = Math.min(topOffset, maxTop);
+    
+    return {
+      top: `${finalTop}px`,
+      right: '20px'
+    };
+  }
+}
+
+/**
+ * 创建上传结果通知
+ * @param {Object} result - 上传结果对象，成功时包含 url，失败时包含 error
+ * @param {string} type - 通知类型：'success' 或 'error'
+ * @returns {HTMLElement} 通知元素
+ */
 function createResultNotification(result, type) {
   const notification = document.createElement('div');
   
-  // 更舒适的颜色方案
-  const bgColor = type === 'success' ? '#f0f9ff' : '#fef2f2';
-  const borderColor = type === 'success' ? '#0ea5e9' : '#ef4444';
-  const textColor = type === 'success' ? '#0c4a6e' : '#991b1b';
+  // 设置CSS类 - 使用 imgbed- 前缀避免与其他网站（如Discourse）冲突
+  notification.className = `imgbed-notification imgbed-notification-${type}`;
   
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 350px;
-    background: ${bgColor};
-    border: 2px solid ${borderColor};
-    border-radius: 10px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
-    z-index: 10001;
-    padding: 16px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    color: ${textColor};
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-  `;
+  // 获取通知位置
+  const position = NotificationManager.getNotificationPosition();
+  notification.style.top = position.top;
+  notification.style.right = position.right;
   
   if (type === 'success') {
     const formats = [
@@ -32,57 +107,52 @@ function createResultNotification(result, type) {
       { label: 'BBCode', value: `[img]${result.url}[/img]` }
     ];
     
-    // 优化链接显示长度
-    const truncateText = (text, maxLength = 55) => {
-      if (text.length <= maxLength) return text;
-      const start = text.substring(0, 30);
-      const end = text.substring(text.length - 20);
-      return `${start}...${end}`;
-    };
-    
-
-    
     const formatItems = formats.map(format => `
-      <div class="format-item" style="margin-bottom: 4px;">
-        <div style="color: #64748b; font-weight: 500; font-size: 9px; margin-bottom: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${format.label}</div>
-        <div class="link-item" style="background: rgba(14, 165, 233, 0.1); padding: 6px 8px; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(14, 165, 233, 0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" data-text="${format.value}" title="${format.value}">
-          ${truncateText(format.value)}
+      <div class="imgbed-format-item">
+        <div class="imgbed-format-label">${escapeHtml(format.label)}</div>
+        <div class="imgbed-link-item" data-text="${escapeHtml(format.value)}" title="${escapeHtml(format.value)}">
+          ${escapeHtml(truncateText(format.value))}
         </div>
       </div>
     `).join('');
     
     notification.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <div style="width: 20px; height: 20px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>
-          <strong style="color: #059669; font-size: 13px;">上传成功！</strong>
+      <div class="imgbed-notification-header">
+        <div class="imgbed-notification-title imgbed-success">
+          <div class="imgbed-status-icon imgbed-success">✓</div>
+          <strong>上传成功！</strong>
         </div>
-        <button class="close-btn" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 5px; font-size: 14px; cursor: pointer; color: ${textColor}; padding: 2px 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
+        <button class="imgbed-close-btn">×</button>
       </div>
-      <div style="margin-bottom: 10px;">
+      <div class="imgbed-notification-content">
         ${formatItems}
       </div>
     `;
   } else {
     notification.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <div style="width: 20px; height: 20px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✕</div>
-          <strong style="color: #dc2626; font-size: 13px;">上传失败</strong>
+      <div class="imgbed-notification-header">
+        <div class="imgbed-notification-title imgbed-error">
+          <div class="imgbed-status-icon imgbed-error">✕</div>
+          <strong>上传失败</strong>
         </div>
-        <button class="close-btn" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 5px; font-size: 14px; cursor: pointer; color: ${textColor}; padding: 2px 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">×</button>
+        <button class="imgbed-close-btn">×</button>
       </div>
-      <div style="margin-bottom: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 5px; border-left: 3px solid #ef4444;">
-        <div style="font-weight: 500; margin-bottom: 3px; font-size: 12px;">错误信息：</div>
-        <div style="font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; word-break: break-word;">${result.error}</div>
-      </div>
-      <div style="margin-top: 12px; font-size: 11px; color: #64748b; text-align: center; padding: 6px; background: rgba(239, 68, 68, 0.05); border-radius: 5px;">
-        <span>🔧 请检查配置或重试</span>
+      <div class="imgbed-notification-content">
+        <div class="imgbed-error-message">
+          <div class="imgbed-error-label">错误信息：</div>
+          <div class="imgbed-error-text">${escapeHtml(result.error)}</div>
+        </div>
+        <div class="imgbed-error-hint">
+          <span>🔧 请检查配置或重试</span>
+        </div>
       </div>
     `;
   }
   
   document.body.appendChild(notification);
+  
+  // 添加到管理器
+  NotificationManager.add(notification);
   
   // 添加事件监听器
   setupNotificationEvents(notification, type);
@@ -90,113 +160,109 @@ function createResultNotification(result, type) {
   return notification;
 }
 
-// 设置通知事件
-function setupNotificationEvents(notification, type) {
-  // 关闭按钮事件
-  const closeBtn = notification.querySelector('.close-btn');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      removeNotification(notification);
-    });
-    
-    // 关闭按钮悬停效果
-    closeBtn.addEventListener('mouseenter', () => {
-      if (type === 'success') {
-        closeBtn.style.background = 'rgba(14, 165, 233, 0.2)';
-        closeBtn.style.borderColor = 'rgba(14, 165, 233, 0.5)';
-      } else {
-        closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        closeBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-      }
-    });
-    
-    closeBtn.addEventListener('mouseleave', () => {
-      if (type === 'success') {
-        closeBtn.style.background = 'rgba(14, 165, 233, 0.1)';
-        closeBtn.style.borderColor = 'rgba(14, 165, 233, 0.3)';
-      } else {
-        closeBtn.style.background = 'rgba(239, 68, 68, 0.1)';
-        closeBtn.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-      }
-    });
-  }
-  
-  // 链接点击复制事件（仅成功通知）
-  if (type === 'success') {
-    const linkItems = notification.querySelectorAll('.link-item');
-    linkItems.forEach(item => {
-      item.addEventListener('click', async () => {
-        const text = item.getAttribute('data-text');
-        try {
-          await navigator.clipboard.writeText(text);
-          
-          // 视觉反馈
-          const originalBg = item.style.backgroundColor;
-          const originalBorder = item.style.borderColor;
-          item.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
-          item.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-          setTimeout(() => {
-            item.style.backgroundColor = originalBg;
-            item.style.borderColor = originalBorder;
-          }, 300);
-          
-          // 显示复制成功提示
-          showCopyFeedback(item);
-        } catch (error) {
-          console.error('复制失败:', error);
-          // 降级方案
-          fallbackCopy(text);
-        }
-      });
-      
-      // 鼠标悬停效果
-      item.addEventListener('mouseenter', () => {
-        item.style.backgroundColor = 'rgba(14, 165, 233, 0.15)';
-        item.style.borderColor = 'rgba(14, 165, 233, 0.4)';
-        item.style.transform = 'translateY(-1px)';
-      });
-      
-      item.addEventListener('mouseleave', () => {
-        item.style.backgroundColor = 'rgba(14, 165, 233, 0.1)';
-        item.style.borderColor = 'rgba(14, 165, 233, 0.2)';
-        item.style.transform = 'translateY(0)';
-      });
-    });
-  }
-  
-  // 移除通知
-  function removeNotification(element) {
-    if (element && element.parentNode) {
-      element.style.opacity = '0';
-      setTimeout(() => {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-      }, 300);
-    }
+// ==================== 通知移除功能 ====================
+
+/**
+ * 移除通知元素（带动画效果）
+ * @param {HTMLElement} element - 要移除的通知元素
+ */
+function removeNotification(element) {
+  if (element && element.parentNode) {
+    element.style.opacity = '0';
+    element.style.transform = 'translateX(20px)';
+    setTimeout(() => {
+      NotificationManager.remove(element);
+    }, 300);
   }
 }
 
-// 显示复制成功反馈
-function showCopyFeedback(element) {
+// ==================== 事件设置功能 ====================
+
+/**
+ * 设置通知事件监听器
+ * @param {HTMLElement} notification - 通知元素
+ * @param {string} type - 通知类型
+ */
+function setupNotificationEvents(notification, type) {
+  // 设置关闭按钮事件
+  setupCloseButton(notification, type);
+  
+  // 设置链接点击复制事件（仅成功通知）
+  if (type === 'success') {
+    setupLinkCopyEvents(notification);
+  }
+}
+
+/**
+ * 设置关闭按钮事件
+ * @param {HTMLElement} notification - 通知元素
+ * @param {string} type - 通知类型
+ */
+function setupCloseButton(notification, type) {
+  const closeBtn = notification.querySelector('.imgbed-close-btn');
+  if (!closeBtn) return;
+  
+  // 点击关闭
+  closeBtn.addEventListener('click', () => {
+    removeNotification(notification);
+  });
+  
+  // 悬停效果颜色配置
+  const colors = type === 'success'
+    ? { hover: 'rgba(14, 165, 233, 0.2)', hoverBorder: 'rgba(14, 165, 233, 0.5)', normal: 'rgba(14, 165, 233, 0.1)', normalBorder: 'rgba(14, 165, 233, 0.3)' }
+    : { hover: 'rgba(239, 68, 68, 0.2)', hoverBorder: 'rgba(239, 68, 68, 0.5)', normal: 'rgba(239, 68, 68, 0.1)', normalBorder: 'rgba(239, 68, 68, 0.3)' };
+  
+  closeBtn.addEventListener('mouseenter', () => {
+    closeBtn.style.background = colors.hover;
+    closeBtn.style.borderColor = colors.hoverBorder;
+  });
+  
+  closeBtn.addEventListener('mouseleave', () => {
+    closeBtn.style.background = colors.normal;
+    closeBtn.style.borderColor = colors.normalBorder;
+  });
+}
+
+/**
+ * 设置链接复制事件
+ * @param {HTMLElement} notification - 通知元素
+ */
+function setupLinkCopyEvents(notification) {
+  const linkItems = notification.querySelectorAll('.imgbed-link-item');
+  
+  linkItems.forEach(item => {
+    // 使用事件管理器添加事件监听器
+    EventManager.add(item, 'click', async () => {
+      const text = item.getAttribute('data-text');
+      try {
+        await copyTextToClipboard(text, item);
+      } catch (error) {
+        console.error('复制失败:', error);
+        // 显示错误提示
+        showCopyError(item, error.message);
+      }
+    });
+    
+    // 悬停效果通过CSS类处理
+    EventManager.add(item, 'mouseenter', () => {
+      item.classList.add('imgbed-hover');
+    });
+    
+    EventManager.add(item, 'mouseleave', () => {
+      item.classList.remove('imgbed-hover');
+    });
+  });
+}
+
+/**
+ * 显示复制错误提示
+ * @param {HTMLElement} element - 触发复制的元素
+ * @param {string} errorMessage - 错误消息
+ */
+function showCopyError(element, errorMessage) {
   const feedback = document.createElement('div');
-  feedback.innerHTML = '✓ 已复制';
-  feedback.style.cssText = `
-    position: absolute;
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    z-index: 10002;
-    pointer-events: none;
-    opacity: 0;
-    transform: translateY(10px) scale(0.9);
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    backdrop-filter: blur(10px);
-  `;
+  feedback.innerHTML = '✕ 复制失败';
+  feedback.className = 'imgbed-copy-feedback imgbed-error';
   
   // 定位到元素右上角
   const rect = element.getBoundingClientRect();
@@ -207,30 +273,18 @@ function showCopyFeedback(element) {
   
   // 显示动画
   setTimeout(() => {
-    feedback.style.opacity = '1';
-    feedback.style.transform = 'translateY(0) scale(1)';
+    feedback.classList.add('imgbed-show');
   }, 10);
   
-  // 1.5秒后移除
+  // 2秒后移除
   setTimeout(() => {
-    feedback.style.opacity = '0';
-    feedback.style.transform = 'translateY(-10px) scale(0.9)';
+    feedback.classList.remove('imgbed-show');
     setTimeout(() => {
       if (feedback.parentNode) {
         feedback.parentNode.removeChild(feedback);
       }
     }, 300);
-  }, 1500);
+  }, 2000);
 }
 
-// 降级复制方案
-function fallbackCopy(text) {
-  const textArea = document.createElement('textarea');
-  textArea.value = text;
-  textArea.style.position = 'fixed';
-  textArea.style.opacity = '0';
-  document.body.appendChild(textArea);
-  textArea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textArea);
-}
+// copyTextToClipboard 和 showCopyFeedback 函数已移至 utils.js

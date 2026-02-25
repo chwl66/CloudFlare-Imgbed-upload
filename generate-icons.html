@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成扩展图标</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    
+    .upload-area {
+      border: 3px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 30px;
+      transition: all 0.3s;cursor: pointer;background: #f8fafc;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #0ea5e9;
+      background: #f0f9ff;
+    }
+    .upload-area input {
+      display: none;
+    }
+    .upload-area p {
+      color: #64748b;
+      margin: 10px 0;
+    }
+    .upload-area .icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    
+    .source-preview {
+      text-align: center;
+      margin-bottom: 30px;display: none;
+    }
+    .source-preview img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .source-preview p {
+      color: #64748b;
+      margin-top: 10px;
+    }
+    
+    .icon-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin: 30px 0;flex-wrap: wrap;
+    }
+    .icon-box {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+    }
+    .icon-box canvas {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: white;
+    }
+    .icon-box p {
+      margin: 10px 0 0;
+      color: #64748b;font-weight: 500;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #0ea5e9, #22c55e);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+    }
+    .btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      transform: none;box-shadow: none;
+    }
+    .btn-secondary {
+      background: #64748b;
+    }
+    .btn-secondary:hover {
+      box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+    }
+    
+    .button-group {
+      text-align: center;
+      margin-top: 25px;
+    }
+    .instructions {
+      background: linear-gradient(135deg, #e0f2fe, #dcfce7);
+      padding: 20px 25px;
+      border-radius: 12px;
+      margin-top: 30px;
+      border-left: 4px solid #0ea5e9;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #0369a1;
+    }
+    .instructions ol {
+      margin-bottom: 0;
+      color: #075985;
+      line-height: 1.8;
+    }
+    .instructions code {
+      background: rgba(14, 165, 233, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+    }
+    
+    .status {
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 20px;
+      display: none;
+    }
+    .status.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .status.error {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖼️ CloudFlare ImgBed 图标生成器</h1>
+    
+    <div class="upload-area" id="uploadArea">
+      <div class="icon">📤</div>
+      <p><strong>点击上传图片</strong> 或拖拽图片到此处</p>
+      <p>支持 PNG、JPG、SVG 格式</p>
+      <input type="file" id="fileInput" accept="image/*"></div>
+    
+    <div class="source-preview" id="sourcePreview">
+      <img id="previewImg" src="" alt="原图预览">
+      <p>原始图片预览</p>
+    </div>
+    
+    <div class="icon-container">
+      <div class="icon-box">
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <p>16×16</p>
+      </div>
+      <div class="icon-box">
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <p>48×48</p>
+      </div>
+      <div class="icon-box">
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <p>128×128</p>
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <button class="btn" onclick="downloadIcon('icon16','icon16.png')" id="btn16" disabled>下载 16×16</button>
+      <button class="btn" onclick="downloadIcon('icon48', 'icon48.png')" id="btn48" disabled>下载 48×48</button>
+      <button class="btn" onclick="downloadIcon('icon128', 'icon128.png')" id="btn128" disabled>下载 128×128</button>
+      <button class="btn" onclick="downloadAll()" id="btnAll" disabled>📦 下载全部</button>
+    </div>
+    
+    <div class="button-group">
+      <button class="btn btn-secondary" onclick="useDefaultIcon()">使用默认云图标</button></div>
+    
+    <div class="status" id="status"></div>
+    
+    <div class="instructions">
+      <h3>📋 使用说明</h3>
+      <ol>
+        <li><strong>上传图片</strong>：点击上方区域或拖拽您的图标图片</li>
+        <li><strong>下载图标</strong>：点击下载按钮获取对应尺寸的 PNG 文件</li>
+        <li><strong>保存文件</strong>：将下载的图标保存到扩展的<code>icons/</code> 文件夹</li>
+        <li><strong>重新加载</strong>：在浏览器扩展管理页面点击"重新加载"按钮</li>
+      </ol>
+    </div>
+  </div>
+  
+  <script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const sourcePreview = document.getElementById('sourcePreview');
+    const previewImg = document.getElementById('previewImg');
+    let sourceImage = null;
+    
+    // 点击上传区域触发文件选择
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // 拖拽事件
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+    
+    // 文件选择事件
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+    
+    // 处理上传的文件
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) {
+        showStatus('请上传图片文件！', 'error');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          sourceImage = img;
+          previewImg.src = e.target.result;
+          sourcePreview.style.display = 'block';
+          generateIcons(img);
+          enableButtons();
+          showStatus('图标生成成功！点击下载按钮保存图标文件。', 'success');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    
+    // 生成各尺寸图标
+    function generateIcons(img) {
+      const sizes = [16, 48, 128];
+      sizes.forEach(size => {
+        const canvas = document.getElementById(`icon${size}`);
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        
+        // 保持图片比例居中绘制
+        const scale = Math.min(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const x = (size - w) / 2;
+        const y = (size - h) / 2;
+        
+        ctx.drawImage(img, x, y, w, h);});
+    }
+    
+    // 使用默认云图标
+    function useDefaultIcon() {
+      const sizes = [16, 48, 128];
+      sizes.forEach(size => {
+        const canvas = document.getElementById(`icon${size}`);
+        const ctx = canvas.getContext('2d');
+        drawDefaultCloudIcon(ctx, size);
+      });sourcePreview.style.display = 'none';enableButtons();
+      showStatus('默认图标已生成！点击下载按钮保存图标文件。', 'success');
+    }
+    
+    // 绘制默认云上传图标（类似用户提供的设计）
+    function drawDefaultCloudIcon(ctx, size) {
+      ctx.clearRect(0, 0, size, size);
+      
+      // 创建渐变背景
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#0ea5e9');// 天蓝色
+      gradient.addColorStop(0.5, '#06b6d4'); // 青色
+      gradient.addColorStop(1, '#22c55e');  // 绿色
+      
+      // 绘制圆角矩形背景
+      const radius = size * 0.18;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, radius);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      
+      // 设置白色
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'white';
+      
+      const cx = size / 2;
+      const scale = size / 128;
+      
+      // 绘制云朵
+      ctx.beginPath();
+      // 云朵由多个圆组成
+      const cloudY = size * 0.42;
+      // 左侧小圆
+      ctx.arc(cx -28* scale, cloudY + 8 * scale, 16 * scale, 0, Math.PI * 2);
+      // 中间大圆
+      ctx.arc(cx, cloudY - 6 * scale, 24 * scale, 0, Math.PI * 2);
+      // 右侧小圆
+      ctx.arc(cx + 28 * scale, cloudY + 8 * scale, 16 * scale, 0, Math.PI * 2);
+      // 底部连接圆
+      ctx.arc(cx - 12 * scale, cloudY + 12 * scale, 14 * scale, 0, Math.PI * 2);
+      ctx.arc(cx + 12 * scale, cloudY + 12 * scale, 14 * scale, 0, Math.PI * 2);
+      
+      ctx.fill();
+      
+      // 绘制上传箭头
+      const arrowCenterY = size * 0.72;
+      const arrowHeight = 24 * scale;
+      const arrowWidth = 22 * scale;
+      const lineWidth = Math.max(3 * scale, 2);
+      
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      ctx.beginPath();
+      // 箭头竖线
+      ctx.moveTo(cx, arrowCenterY + arrowHeight * 0.4);
+      ctx.lineTo(cx, arrowCenterY - arrowHeight * 0.3);
+      ctx.stroke();
+      
+      // 箭头头部
+      ctx.beginPath();
+      ctx.moveTo(cx - arrowWidth * 0.45, arrowCenterY);
+      ctx.lineTo(cx, arrowCenterY - arrowHeight * 0.5);
+      ctx.lineTo(cx + arrowWidth * 0.45, arrowCenterY);
+      ctx.stroke();
+    }
+    
+    // 启用下载按钮
+    function enableButtons() {
+      document.getElementById('btn16').disabled = false;
+      document.getElementById('btn48').disabled = false;
+      document.getElementById('btn128').disabled = false;
+      document.getElementById('btnAll').disabled = false;
+    }
+    
+    // 下载单个图标
+    function downloadIcon(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    
+    // 下载所有图标
+    function downloadAll() {
+      downloadIcon('icon16', 'icon16.png');
+      setTimeout(() => downloadIcon('icon48', 'icon48.png'), 100);
+      setTimeout(() => downloadIcon('icon128', 'icon128.png'), 200);
+    }
+    
+    // 显示状态消息
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = `status ${type}`;
+      status.style.display = 'block';
+      
+      if (type === 'success') {
+        setTimeout(() => {
+          status.style.display = 'none';
+        }, 5000);
+      }
+    }
+  </script>
+</body>
+</html>

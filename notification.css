@@ -1,0 +1,275 @@
+/* ==================== 通知系统样式 ==================== */
+/* 使用 imgbed- 前缀避免与其他网站（如Discourse）的样式冲突 */
+
+/* 基础通知样式 */
+.imgbed-notification {
+  position: fixed;
+  width: 350px;
+  background: #f0f9ff;
+  border: 2px solid #0ea5e9;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  z-index: 2147483647;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #0c4a6e;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.imgbed-notification.imgbed-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 错误状态样式 */
+.imgbed-notification.imgbed-error {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+/* 通知头部 */
+.imgbed-notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.imgbed-notification-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.imgbed-notification-title.imgbed-success {
+  color: #059669;
+}
+
+.imgbed-notification-title.imgbed-error {
+  color: #dc2626;
+}
+
+/* 状态图标 */
+.imgbed-status-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+}
+
+.imgbed-status-icon.imgbed-success {
+  background: #10b981;
+}
+
+.imgbed-status-icon.imgbed-error {
+  background: #ef4444;
+}
+
+/* 关闭按钮 */
+.imgbed-close-btn {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  color: inherit;
+  padding: 2px 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.imgbed-notification.imgbed-error .imgbed-close-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.imgbed-close-btn:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.5);
+}
+
+.imgbed-notification.imgbed-error .imgbed-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* 通知内容 */
+.imgbed-notification-content {
+  margin-bottom: 10px;
+}
+
+/* 格式项 */
+.imgbed-format-item {
+  margin-bottom: 4px;
+}
+
+.imgbed-format-label {
+  color: #64748b;
+  font-weight: 500;
+  font-size: 9px;
+  margin-bottom: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 链接项 */
+.imgbed-link-item {
+  background: rgba(14, 165, 233, 0.1);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imgbed-link-item.imgbed-hover {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.4);
+  transform: translateY(-1px);
+}
+
+/* 错误消息 */
+.imgbed-error-message {
+  margin-bottom: 10px;
+  padding: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 5px;
+  border-left: 3px solid #ef4444;
+}
+
+.imgbed-error-label {
+  font-weight: 500;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.imgbed-error-text {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+/* 错误提示 */
+.imgbed-error-hint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+  padding: 6px;
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: 5px;
+}
+
+/* 复制反馈 */
+.imgbed-copy-feedback {
+  position: absolute;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px) scale(0.9);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.imgbed-copy-feedback.imgbed-show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.imgbed-copy-feedback.imgbed-error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .imgbed-notification {
+    width: calc(100vw - 40px);
+    right: 20px;
+    left: 20px;
+  }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .imgbed-notification {
+    background: #1e293b;
+    border-color: #0ea5e9;
+    color: #e2e8f0;
+  }
+  
+  .imgbed-notification.imgbed-error {
+    background: #1e293b;
+    border-color: #ef4444;
+    color: #fca5a5;
+  }
+  
+  .imgbed-format-label {
+    color: #94a3b8;
+  }
+  
+  .imgbed-error-hint {
+    color: #94a3b8;
+    background: rgba(239, 68, 68, 0.1);
+  }
+  
+  .imgbed-error-message {
+    background: rgba(239, 68, 68, 0.1);
+  }
+}
+
+/* 动画效果 */
+@keyframes imgbed-slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes imgbed-slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}
+
+.imgbed-notification.imgbed-show {
+  animation: imgbed-slideIn 0.3s ease-out;
+}
+
+.imgbed-notification.imgbed-hiding {
+  animation: imgbed-slideOut 0.3s ease-in;
+}

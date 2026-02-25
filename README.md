@@ -311,7 +311,12 @@ chrome.storage.sync.get(null, console.log)
 
 ## 📝 版本历史
 
-### v1.2.0 (最新) - 2024/01/15
+### v1.3.0 (最新) - 2025/10/10
+```diff
++ 新增：批量上传、上传历史、图片压缩、自定义快捷键和暗色主题
+```
+
+### v1.2.0 - 2024/01/15
 ```diff
 + 新增：智能防盗链绕过机制
 + 新增：多重fallback上传策略
@@ -343,11 +348,6 @@ chrome.storage.sync.get(null, console.log)
 ## 🚀 路线图
 
 ### 计划中的功能
-- [ ] 批量上传支持
-- [ ] 上传历史记录
-- [ ] 图片压缩选项
-- [ ] 自定义快捷键
-- [ ] 暗色主题支持
 - [ ] 多语言界面
 - [ ] 云端配置同步
 
@@ -406,7 +406,7 @@ git push origin feature/new-feature
 ```
 MIT License
 
-Copyright (c) 2024 CloudFlare ImgBed Uploader
+Copyright (c) 2025 CloudFlare ImgBed Uploader
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

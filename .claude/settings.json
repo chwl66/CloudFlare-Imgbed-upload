@@ -1,0 +1,8 @@
+{
+  "model": "gpt-5.2-codex",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://ohmyapi.zeabur.app",
+    "ANTHROPIC_AUTH_TOKEN": "sk-uopIIbQtZmW9kx4olX1ztQY3ZPn0mFIBjw7ybVLL6322LAbP",
+    "ANTHROPIC_API_KEY": ""
+  }
+}
