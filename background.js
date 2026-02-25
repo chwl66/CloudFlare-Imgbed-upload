@@ -242,7 +242,7 @@ function buildUploadUrl(config) {
     uploadChannel: config.uploadChannel,
     autoRetry: config.autoRetry,
     uploadNameType: config.uploadNameType,
-    returnFormat: config.returnFormat || DEFAULT_CONFIG.returnFormat
+    returnFormat: config.returnFormat
   });
   
   if (config.authCode && config.authCode.trim()) {
