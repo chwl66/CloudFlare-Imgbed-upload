@@ -119,11 +119,6 @@ async function testConnection() {
     return;
   }
 
-  if (typeof isInvalidApiHost === 'function' && isInvalidApiHost(apiUrl)) {
-    showStatus('请填写真实 API 地址，不能使用示例域名！', 'error');
-    return;
-  }
-
   try {
     showStatus('正在测试连接...', 'info');
     hideUploadProgress();
