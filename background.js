@@ -75,17 +75,47 @@ function getUserFriendlyErrorMessage(error, status = null) {
 // 初始化扩展
 chrome.runtime.onInstalled.addListener(async () => {
   log('info', '扩展已安装/更新');
-  
-  // 初始化配置（使用公共配置模块）
-  const config = await chrome.storage.sync.get(CONFIG_KEYS);
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
-  await chrome.storage.sync.set(mergedConfig);
-  
-  log('debug', '配置已初始化', mergedConfig);
-  
+
+  // 初始化配置（仅写入 sync 非敏感字段）
+  const [syncData, localData] = await Promise.all([
+    chrome.storage.sync.get([...SYNC_CONFIG_KEYS, ...CONFIG_META_KEYS, ...SENSITIVE_CONFIG_KEYS]),
+    chrome.storage.local.get(SENSITIVE_CONFIG_KEYS)
+  ]);
+
+  const { authCode, ...syncDefaults } = DEFAULT_CONFIG;
+  const mergedSyncConfig = { ...syncDefaults };
+
+  SYNC_CONFIG_KEYS.forEach(key => {
+    if (syncData[key] !== undefined) {
+      mergedSyncConfig[key] = syncData[key];
+    }
+  });
+
+  mergedSyncConfig._version = CONFIG_VERSION;
+
+  // 迁移历史敏感字段：sync -> local
+  const legacySensitive = {};
+  SENSITIVE_CONFIG_KEYS.forEach(key => {
+    if (localData[key] === undefined && typeof syncData[key] === 'string' && syncData[key].trim()) {
+      legacySensitive[key] = syncData[key];
+    }
+  });
+
+  await chrome.storage.sync.set(mergedSyncConfig);
+
+  if (Object.keys(legacySensitive).length > 0) {
+    await chrome.storage.local.set(legacySensitive);
+  }
+
+  // 防止敏感字段残留在 sync
+  await chrome.storage.sync.remove(SENSITIVE_CONFIG_KEYS);
+
+  log('debug', '配置已初始化', mergedSyncConfig);
+
   // 创建右键菜单
   createContextMenus();
 });
+
 
 // 创建右键菜单
 function createContextMenus() {
