@@ -335,15 +335,14 @@ async function migrateConfigIfNeeded(config) {
 // 获取敏感信息的掩码版本
 function getMaskedConfig(config) {
   const maskedConfig = { ...config };
-  const sensitiveFields = ['authCode'];
-  
-  sensitiveFields.forEach(field => {
+
+  SENSITIVE_CONFIG_KEYS.forEach(field => {
     if (maskedConfig[field]) {
       // 使用统一的掩码标记
       maskedConfig[field] = AUTH_CODE_MASK_MARKER;
     }
   });
-  
+
   return maskedConfig;
 }
 
@@ -351,7 +350,7 @@ function getMaskedConfig(config) {
 function isConfigComplete(config) {
   const requiredFields = ['apiUrl'];
   const normalized = normalizeConfig(config);
-  return requiredFields.every(field => normalized[field] && normalized[field].trim() !== '');
+  return requiredFields.every(field => Boolean(normalized[field]));
 }
 
 // 获取配置摘要（用于日志）
