@@ -169,8 +169,10 @@ async function saveConfig(config, originalConfig = null) {
     let value = normalizedConfig[key];
 
     // 特殊处理认证码：如果是掩码值，保留原值
-    if (key === 'authCode' && isMaskedValue(value) && originalConfig) {
-      value = originalConfig[key];
+    if (key === 'authCode' && isMaskedValue(value)) {
+      value = typeof originalConfig?.[key] === 'string'
+        ? originalConfig[key]
+        : DEFAULT_CONFIG.authCode;
     }
 
     if (SENSITIVE_CONFIG_KEYS.includes(key)) {
