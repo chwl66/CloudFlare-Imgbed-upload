@@ -57,7 +57,8 @@ async function saveFormConfig() {
           config[key] = element.checked;
         } else if (key === 'uploadTimeout') {
           // 超时时间从秒转换为毫秒
-          const seconds = parseInt(element.value) || 60;
+          const defaultTimeoutSeconds = Math.floor(DEFAULT_CONFIG.uploadTimeout / 1000);
+          const seconds = parseInt(element.value, 10) || defaultTimeoutSeconds;
           config[key] = Math.max(10, Math.min(300, seconds)) * 1000;
         } else {
           config[key] = element.value.trim();
