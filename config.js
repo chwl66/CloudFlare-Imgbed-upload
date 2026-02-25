@@ -357,15 +357,17 @@ function isConfigComplete(config) {
 
 // 获取配置摘要（用于日志）
 function getConfigSummary(config) {
+  const normalized = normalizeConfig(config);
+
   return {
-    hasApiUrl: !!config.apiUrl,
-    hasAuthCode: !!config.authCode,
-    uploadChannel: config.uploadChannel,
-    uploadNameType: config.uploadNameType,
-    returnFormat: config.returnFormat,
-    hasUploadFolder: !!config.uploadFolder,
-    serverCompress: config.serverCompress,
-    autoRetry: config.autoRetry
+    hasApiUrl: Boolean(normalized.apiUrl),
+    hasAuthCode: Boolean(normalized.authCode),
+    uploadChannel: normalized.uploadChannel,
+    uploadNameType: normalized.uploadNameType,
+    returnFormat: normalized.returnFormat,
+    hasUploadFolder: Boolean(normalized.uploadFolder),
+    serverCompress: normalized.serverCompress,
+    autoRetry: normalized.autoRetry
   };
 }
 
