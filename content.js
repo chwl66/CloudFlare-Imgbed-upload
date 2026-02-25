@@ -46,13 +46,15 @@ function sendMessageToBackground(message) {
 async function handleImageUpload(imageUrl) {
   let response = null;
   let reader = null;
-  
+
+  showUploadingStatus('上传中...');
+
   try {
     console.log('正在上传图片...', imageUrl);
-    
+
     let blob;
     let fileName = getFileNameFromUrl(imageUrl);
-    
+
     try {
       // 尝试直接 fetch（适用于同域或允许跨域的图片）
       response = await fetch(imageUrl);
@@ -60,20 +62,20 @@ async function handleImageUpload(imageUrl) {
         throw new Error(`HTTP ${response.status}`);
       }
       blob = await response.blob();
-      
+
       // 验证图片文件
       await validateImageFile(blob);
-      
+
     } catch (fetchError) {
       console.log('直接 fetch 失败，尝试通过 canvas 转换:', fetchError.message);
-      
+
       // 降级方案：通过 canvas 转换图片
       try {
         blob = await convertImageToBlob(imageUrl);
         await validateImageFile(blob);
       } catch (canvasError) {
         console.log('Canvas 转换失败，尝试通过 background script 获取:', canvasError.message);
-        
+
         // 最后的降级方案：通过 background script 获取图片
         try {
           const uploadResponse = await sendMessageToBackground({
@@ -81,7 +83,7 @@ async function handleImageUpload(imageUrl) {
             imageUrl: imageUrl,
             fileName: fileName
           });
-          
+
           if (uploadResponse.success) {
             showUploadResult(uploadResponse.result, 'success');
             console.log('通过 background script 上传成功:', uploadResponse.result);
@@ -91,14 +93,15 @@ async function handleImageUpload(imageUrl) {
               new Error(uploadResponse.error),
               extractStatusCode(uploadResponse.error)
             );
-            
+
             // 如果是 403 错误，提供更友好的错误信息和解决方案
             if (errorMessage.includes('403')) {
               // 显示特殊的防盗链错误提示
+              removeCurrentResultNotification();
               showAntiHotlinkError(imageUrl);
               return;
             }
-            
+
             showUploadResult({ error: errorMessage }, 'error');
             console.error('Background script 上传失败:', uploadResponse.error);
           }
@@ -109,7 +112,7 @@ async function handleImageUpload(imageUrl) {
         return;
       }
     }
-    
+
     // 转换为 base64
     reader = new FileReader();
     reader.onload = async function() {
@@ -120,9 +123,9 @@ async function handleImageUpload(imageUrl) {
           fileData: reader.result,
           fileName: fileName
         });
-        
+
         console.log('收到响应:', uploadResponse);
-        
+
         if (uploadResponse.success) {
           // 显示成功结果
           showUploadResult(uploadResponse.result, 'success');
@@ -136,15 +139,15 @@ async function handleImageUpload(imageUrl) {
         reader = null;
       }
     };
-    
+
     reader.onerror = function() {
       showUploadResult({ error: '文件读取失败' }, 'error');
       console.error('FileReader 读取失败');
       reader = null;
     };
-    
+
     reader.readAsDataURL(blob);
-    
+
   } catch (error) {
     showUploadResult({ error: error.message }, 'error');
     console.error('上传错误:', error);
@@ -209,36 +212,38 @@ function convertImageToBlob(imageUrl) {
 // 处理剪贴板上传
 async function handleClipboardUpload() {
   let reader = null;
-  
+
+  showUploadingStatus('上传中...');
+
   try {
     const clipboardItems = await navigator.clipboard.read();
-    
+
     for (const item of clipboardItems) {
       const imageType = item.types.find(type => type.startsWith('image/'));
-      
+
       if (imageType) {
         const blob = await item.getType(imageType);
-        
+
         // 验证图片文件
         await validateImageFile(blob);
-        
+
         reader = new FileReader();
-        
+
         reader.onload = async function() {
           try {
             const fileName = `clipboard-image.${imageType.split('/')[1]}`;
-            
+
             console.log('正在上传剪贴板图片...');
-            
+
             // 使用 Promise 包装的消息发送
             const uploadResponse = await sendMessageToBackground({
               action: 'uploadFile',
               fileData: reader.result,
               fileName: fileName
             });
-            
+
             console.log('收到响应:', uploadResponse);
-            
+
             if (uploadResponse.success) {
               // 显示成功结果
               showUploadResult(uploadResponse.result, 'success');
@@ -251,24 +256,25 @@ async function handleClipboardUpload() {
             reader = null;
           }
         };
-        
+
         reader.onerror = function() {
           showUploadResult({ error: '剪贴板文件读取失败' }, 'error');
           console.error('FileReader 读取失败');
           reader = null;
         };
-        
+
         reader.readAsDataURL(blob);
         return;
       }
     }
-    
+
     console.log('剪贴板中没有图片');
-    
+    showUploadResult({ error: '剪贴板中没有图片数据' }, 'error');
+
   } catch (error) {
     console.log('无法访问剪贴板');
     console.error('剪贴板访问错误:', error);
-    
+
     // 提供用户友好的错误提示
     if (error.name === 'NotAllowedError') {
       showUploadResult({ error: '剪贴板访问被拒绝，请检查浏览器权限设置' }, 'error');
@@ -392,12 +398,38 @@ window.addEventListener('beforeunload', function() {
 // 上传结果显示
 let resultNotification = null;
 
-function showUploadResult(result, type) {
-  // 移除现有的结果通知
+function removeCurrentResultNotification() {
   if (resultNotification) {
     resultNotification.remove();
+    resultNotification = null;
   }
-  
+}
+
+function showUploadingStatus(message = '上传中...') {
+  removeCurrentResultNotification();
+
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(30, 64, 175, 0.95);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    z-index: 10001;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+  notification.textContent = message;
+
+  document.body.appendChild(notification);
+  resultNotification = notification;
+}
+
+function showUploadResult(result, type) {
+  removeCurrentResultNotification();
   resultNotification = createResultNotification(result, type);
 }
 
