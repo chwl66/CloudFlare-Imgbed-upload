@@ -324,9 +324,11 @@ async function migrateConfigIfNeeded(config) {
   // 保存迁移后的配置与新版本（仅 sync 非敏感字段）
   config._version = CONFIG_VERSION;
 
+  // 迁移落盘前做一次统一归一化，确保历史脏值不会继续写回存储
+  const normalizedMigratedConfig = normalizeConfig(config);
   const migratedSyncConfig = { _version: CONFIG_VERSION };
   SYNC_CONFIG_KEYS.forEach(key => {
-    migratedSyncConfig[key] = config[key];
+    migratedSyncConfig[key] = normalizedMigratedConfig[key];
   });
 
   await chrome.storage.sync.set(migratedSyncConfig);
