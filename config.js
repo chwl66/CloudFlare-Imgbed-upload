@@ -14,6 +14,9 @@ const DEFAULT_CONFIG = {
 
 // 配置键列表
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
+const CONFIG_META_KEYS = ['_version'];
+const SENSITIVE_CONFIG_KEYS = ['authCode'];
+const SYNC_CONFIG_KEYS = CONFIG_KEYS.filter(key => !SENSITIVE_CONFIG_KEYS.includes(key));
 
 // 配置版本管理
 const CONFIG_VERSION = '1.2.0';
@@ -24,8 +27,43 @@ const INVALID_API_HOSTS = ['your.domain'];
 
 // 获取配置
 async function getConfig() {
-  const config = await chrome.storage.sync.get(CONFIG_KEYS);
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  const [syncData, localData] = await Promise.all([
+    chrome.storage.sync.get([...SYNC_CONFIG_KEYS, ...CONFIG_META_KEYS, ...SENSITIVE_CONFIG_KEYS]),
+    chrome.storage.local.get(SENSITIVE_CONFIG_KEYS)
+  ]);
+
+  const mergedConfig = { ...DEFAULT_CONFIG };
+
+  SYNC_CONFIG_KEYS.forEach(key => {
+    if (syncData[key] !== undefined) {
+      mergedConfig[key] = syncData[key];
+    }
+  });
+
+  SENSITIVE_CONFIG_KEYS.forEach(key => {
+    if (localData[key] !== undefined) {
+      mergedConfig[key] = localData[key];
+    } else if (syncData[key] !== undefined) {
+      // 兼容历史版本：若敏感项仍在 sync，临时读取并迁移
+      mergedConfig[key] = syncData[key];
+    }
+  });
+
+  if (syncData._version) {
+    mergedConfig._version = syncData._version;
+  }
+
+  // 历史兼容：将敏感项从 sync 迁移到 local
+  const legacySensitive = {};
+  SENSITIVE_CONFIG_KEYS.forEach(key => {
+    if (localData[key] === undefined && typeof syncData[key] === 'string' && syncData[key].trim()) {
+      legacySensitive[key] = syncData[key];
+    }
+  });
+  if (Object.keys(legacySensitive).length > 0) {
+    await chrome.storage.local.set(legacySensitive);
+    await chrome.storage.sync.remove(Object.keys(legacySensitive));
+  }
 
   // 检查配置版本，必要时进行迁移
   await migrateConfigIfNeeded(mergedConfig);
@@ -43,23 +81,40 @@ async function saveConfig(config, originalConfig = null) {
     throw new Error(validation.errors.join('; '));
   }
 
-  const validConfig = {};
+  const syncConfig = {};
+  const localConfig = {};
+
   CONFIG_KEYS.forEach(key => {
-    if (Object.prototype.hasOwnProperty.call(normalizedConfig, key)) {
-      // 特殊处理认证码：如果是掩码值，保留原值
-      if (key === 'authCode' && isMaskedValue(normalizedConfig[key]) && originalConfig) {
-        validConfig[key] = originalConfig[key];
-      } else {
-        validConfig[key] = normalizedConfig[key];
-      }
+    if (!Object.prototype.hasOwnProperty.call(normalizedConfig, key)) {
+      return;
+    }
+
+    let value = normalizedConfig[key];
+
+    // 特殊处理认证码：如果是掩码值，保留原值
+    if (key === 'authCode' && isMaskedValue(value) && originalConfig) {
+      value = originalConfig[key];
+    }
+
+    if (SENSITIVE_CONFIG_KEYS.includes(key)) {
+      localConfig[key] = value;
+    } else {
+      syncConfig[key] = value;
     }
   });
 
-  // 添加版本信息
-  validConfig._version = CONFIG_VERSION;
+  // 添加版本信息（仅 sync）
+  syncConfig._version = CONFIG_VERSION;
 
-  await chrome.storage.sync.set(validConfig);
-  return validConfig;
+  await Promise.all([
+    chrome.storage.sync.set(syncConfig),
+    chrome.storage.local.set(localConfig)
+  ]);
+
+  // 防止敏感字段残留在 sync
+  await chrome.storage.sync.remove(SENSITIVE_CONFIG_KEYS);
+
+  return { ...syncConfig, ...localConfig };
 }
 
 /**
@@ -129,22 +184,35 @@ function validateConfig(config) {
 // 导出配置（用于调试）
 async function exportConfig() {
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(null, (data) => {
+    chrome.storage.sync.get(null, (syncData) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(data);
+        return;
       }
+
+      chrome.storage.local.get(SENSITIVE_CONFIG_KEYS, (localData) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        resolve({ ...syncData, ...localData });
+      });
     });
   });
 }
 
 // 重置配置为默认值
 async function resetConfig() {
-  await chrome.storage.sync.clear();
-  const defaultConfigWithVersion = { ...DEFAULT_CONFIG, _version: CONFIG_VERSION };
+  await Promise.all([
+    chrome.storage.sync.clear(),
+    chrome.storage.local.remove(SENSITIVE_CONFIG_KEYS)
+  ]);
+
+  const { authCode, ...syncDefaults } = DEFAULT_CONFIG;
+  const defaultConfigWithVersion = { ...syncDefaults, _version: CONFIG_VERSION };
   await chrome.storage.sync.set(defaultConfigWithVersion);
-  return defaultConfigWithVersion;
+  return { ...DEFAULT_CONFIG, _version: CONFIG_VERSION };
 }
 
 // 配置迁移
