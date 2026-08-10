@@ -14,7 +14,8 @@
     "*://*/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -26,11 +27,18 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "CloudFlare ImgBed 配置"
+    "default_title": "CloudFlare ImgBed 配置",
+    "default_icon": "icons/icon48.svg"
   },
   "icons": {
+<<<<<<< HEAD
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+=======
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+>>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
   }
 }

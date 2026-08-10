@@ -1,8 +1,14 @@
+<<<<<<< HEAD
 // 使用公共配置文件中的 DEFAULT_CONFIG、CONFIG_KEYS 和相关函数
 // 注意：config.js 需要在 popup.html 中先于 popup.js 加载
 
 // 保存原始配置用于比较
 let originalConfig = null;
+=======
+import { DEFAULT_CONFIG } from './utils/constants.js';
+import { getConfig } from './utils/config.js';
+import { buildUploadUrl } from './utils/api.js';
+>>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -14,12 +20,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadConfig() {
   try {
     const mergedConfig = await getConfig();
+<<<<<<< HEAD
     
     // 保存原始配置
     originalConfig = { ...mergedConfig };
     
     // 使用掩码配置显示敏感信息
     const maskedConfig = getMaskedConfig(mergedConfig);
+=======
+>>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
     
     // 填充表单
     Object.keys(maskedConfig).forEach(key => {
@@ -103,6 +112,7 @@ async function saveFormConfig() {
 
 // 测试连接（改进版本）
 async function testConnection() {
+<<<<<<< HEAD
   const apiUrlInput = document.getElementById('apiUrl').value.trim();
   const authCodeInput = document.getElementById('authCode').value.trim();
 
@@ -114,6 +124,9 @@ async function testConnection() {
     authCode = originalConfig?.authCode ?? DEFAULT_CONFIG.authCode;
   }
 
+=======
+  const apiUrl = document.getElementById('apiUrl').value.trim();
+>>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
   if (!apiUrl) {
     showStatus('请先填写 API 地址！', 'error');
     return;
@@ -121,6 +134,7 @@ async function testConnection() {
 
   try {
     showStatus('正在测试连接...', 'info');
+<<<<<<< HEAD
     hideUploadProgress();
 
     // 首先尝试简单的健康检查
@@ -132,6 +146,44 @@ async function testConnection() {
       }, CONSTANTS.TEST_TIMEOUT);
 
       if (healthResponse.ok) {
+=======
+    
+    // 创建一个测试用的小图片 (1x1 像素的透明 PNG)
+    const testImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    
+    const response = await fetch(testImageData);
+    const blob = await response.blob();
+    
+    const formData = new FormData();
+    formData.append('file', blob, 'test.png');
+    
+    // 从表单收集当前配置
+    const currentConfig = {};
+    Object.keys(DEFAULT_CONFIG).forEach(key => {
+      const element = document.getElementById(key);
+      if (element) {
+        if (element.type === 'checkbox') {
+          currentConfig[key] = element.checked;
+        } else {
+          currentConfig[key] = element.value.trim();
+        }
+      }
+    });
+    
+    const uploadUrl = await buildUploadUrl(
+      { uploadNameType: 'short' }, // 额外参数
+      currentConfig // 覆盖配置
+    );
+    
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (uploadResponse.ok) {
+      const result = await uploadResponse.json();
+      if (result && result.length > 0 && result[0].src) {
+>>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
         showStatus('连接测试成功！', 'success');
         return;
       }
