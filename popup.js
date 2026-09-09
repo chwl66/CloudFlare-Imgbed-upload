@@ -4,6 +4,12 @@
 // 保存原始配置用于比较
 let originalConfig = null;
 
+// 上传记录弹窗
+const HISTORY_PAGE = 'history.html';
+const HISTORY_WINDOW_ID_KEY = '_historyWindowId';
+const HISTORY_WINDOW_WIDTH = 780;
+const HISTORY_WINDOW_HEIGHT = 840;
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -214,6 +220,53 @@ async function performUploadTest(apiUrl, authCode, apiToken) {
   }
 }
 
+// 打开上传记录弹窗（已打开时聚焦已有窗口）
+async function openHistoryWindow() {
+  const windowId = await readHistoryWindowId();
+
+  if (typeof windowId === 'number') {
+    try {
+      await chrome.windows.update(windowId, { focused: true });
+      return;
+    } catch {
+      // 记录中的窗口已被关闭，重新打开新窗口
+    }
+  }
+
+  try {
+    const historyWindow = await chrome.windows.create({
+      url: chrome.runtime.getURL(HISTORY_PAGE),
+      type: 'popup',
+      width: HISTORY_WINDOW_WIDTH,
+      height: HISTORY_WINDOW_HEIGHT
+    });
+    await rememberHistoryWindowId(historyWindow?.id);
+  } catch (error) {
+    showStatus('打开上传记录失败: ' + error.message, 'error');
+  }
+}
+
+// 读取已保存的上传记录窗口 ID
+async function readHistoryWindowId() {
+  try {
+    const data = await chrome.storage.session.get(HISTORY_WINDOW_ID_KEY);
+    return data[HISTORY_WINDOW_ID_KEY];
+  } catch {
+    return undefined;
+  }
+}
+
+// 保存上传记录窗口 ID（session 存储不可用时忽略，重复点击只会多开窗口）
+async function rememberHistoryWindowId(windowId) {
+  if (typeof windowId !== 'number') return;
+
+  try {
+    await chrome.storage.session.set({ [HISTORY_WINDOW_ID_KEY]: windowId });
+  } catch (error) {
+    console.warn('保存上传记录窗口 ID 失败:', error.message);
+  }
+}
+
 // 显示状态消息
 function showStatus(message, type = 'info') {
   const statusElement = document.getElementById('status');
@@ -263,6 +316,11 @@ function bindEvents() {
   // 测试连接按钮
   document.getElementById('testBtn').addEventListener('click', async () => {
     await testConnection();
+  });
+
+  // 上传记录按钮
+  document.getElementById('historyBtn').addEventListener('click', async () => {
+    await openHistoryWindow();
   });
   
   // 输入框失焦时隐藏错误消息
