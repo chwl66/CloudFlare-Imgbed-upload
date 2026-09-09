@@ -329,7 +329,8 @@ async function processUploadResponse(uploadResponse, config) {
     throw createError(ErrorTypes.PARSE_ERROR, '服务器返回格式错误');
   }
   
-  let imageUrl = result[0].src;
+  // 优先使用服务端返回的 publicUrl（配置 urlPrefix 时返回 CDN 加速链接）
+  let imageUrl = result[0].publicUrl || result[0].src;
   
   // 处理URL
   imageUrl = normalizeImageUrl(imageUrl, config.apiUrl);
