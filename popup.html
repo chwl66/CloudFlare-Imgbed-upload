@@ -278,6 +278,12 @@
     </div>
     
     <div class="form-group">
+      <label for="apiToken">API Token (可选，推荐)</label>
+      <input type="password" id="apiToken" placeholder="输入 API Token">
+      <div class="help-text">在 ImgBed 管理后台创建的 API Token，需具备 upload 权限；与认证码二选一</div>
+    </div>
+    
+    <div class="form-group">
       <label for="authCode">上传认证码 (可选)</label>
       <input type="password" id="authCode" placeholder="输入认证码（如果需要）">
       <div class="help-text">用于身份验证的认证码，如果服务不需要认证可留空</div>

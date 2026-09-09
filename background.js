@@ -277,6 +277,22 @@ function buildUploadUrl(config) {
 }
 
 /**
+ * 构建上传请求头
+ * 优先使用 API Token（Authorization: Bearer），兼容旧版 authCode
+ * @param {Object} config - 配置对象
+ * @returns {Object} 请求头对象
+ */
+function buildUploadHeaders(config) {
+  const headers = {};
+  
+  if (config.apiToken && config.apiToken.trim()) {
+    headers['Authorization'] = `Bearer ${config.apiToken.trim()}`;
+  }
+  
+  return headers;
+}
+
+/**
  * 处理上传响应
  * @param {Response} uploadResponse - fetch 响应
  * @param {Object} config - 配置对象
@@ -389,11 +405,13 @@ async function uploadFile(fileData, fileName) {
     
     // 根据配置决定是否使用重试
     const uploadTimeout = config.uploadTimeout;
+    const uploadHeaders = buildUploadHeaders(config);
     let uploadResponse;
     
     if (config.autoRetry) {
       uploadResponse = await fetchWithRetry(uploadUrl, {
         method: 'POST',
+        headers: uploadHeaders,
         body: formData
       }, {
         maxRetries: CONSTANTS.MAX_RETRIES,
@@ -407,6 +425,7 @@ async function uploadFile(fileData, fileName) {
     } else {
       uploadResponse = await fetchWithTimeout(uploadUrl, {
         method: 'POST',
+        headers: uploadHeaders,
         body: formData
       }, uploadTimeout);
     }

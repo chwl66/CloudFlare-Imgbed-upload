@@ -27,8 +27,8 @@ async function loadConfig() {
       if (element) {
         if (element.type === 'checkbox') {
           element.checked = mergedConfig[key]; // 使用原始值
-        } else if (key === 'authCode') {
-          // 认证码特殊处理：显示掩码但保留原值标记
+        } else if (SENSITIVE_CONFIG_KEYS.includes(key)) {
+          // 敏感字段（认证码 / API Token）特殊处理：显示掩码但保留原值标记
           element.value = maskedConfig[key];
           element.dataset.isMasked = 'true';
         } else if (key === 'uploadTimeout') {
@@ -86,11 +86,13 @@ async function saveFormConfig() {
     // 使用保存后的规范化配置覆盖本地快照
     originalConfig = { ...originalConfig, ...savedConfig };
 
-    // 更新原始配置（如果认证码被修改了）
-    const authCodeElement = document.getElementById('authCode');
-    if (authCodeElement && !isMaskedValue(config.authCode)) {
-      originalConfig.authCode = config.authCode;
-    }
+    // 更新原始配置（如果敏感字段被修改了）
+    SENSITIVE_CONFIG_KEYS.forEach(key => {
+      const element = document.getElementById(key);
+      if (element && !isMaskedValue(config[key])) {
+        originalConfig[key] = config[key];
+      }
+    });
     
     showStatus('配置已保存！', 'success');
     
@@ -105,13 +107,18 @@ async function saveFormConfig() {
 async function testConnection() {
   const apiUrlInput = document.getElementById('apiUrl').value.trim();
   const authCodeInput = document.getElementById('authCode').value.trim();
+  const apiTokenInput = document.getElementById('apiToken').value.trim();
 
   const apiUrl = normalizeApiUrlValue(apiUrlInput);
   let authCode = authCodeInput;
+  let apiToken = apiTokenInput;
 
-  // 认证码掩码值恢复为原始值，避免测试连接误用掩码字符
+  // 掩码值恢复为原始值，避免测试连接误用掩码字符
   if (isMaskedValue(authCodeInput)) {
     authCode = originalConfig?.authCode ?? DEFAULT_CONFIG.authCode;
+  }
+  if (isMaskedValue(apiTokenInput)) {
+    apiToken = originalConfig?.apiToken ?? DEFAULT_CONFIG.apiToken;
   }
 
   if (!apiUrl) {
@@ -125,10 +132,16 @@ async function testConnection() {
 
     // 首先尝试简单的健康检查
     const healthCheckUrl = `${apiUrl.replace(/\/$/, '')}/health`;
+    const healthHeaders = {};
+    if (apiToken) {
+      healthHeaders['Authorization'] = `Bearer ${apiToken}`;
+    } else if (authCode) {
+      healthHeaders['authCode'] = authCode;
+    }
     try {
       const healthResponse = await fetchWithTimeout(healthCheckUrl, {
         method: 'HEAD',
-        headers: authCode ? { 'Authorization': `Bearer ${authCode}` } : {}
+        headers: healthHeaders
       }, CONSTANTS.TEST_TIMEOUT);
 
       if (healthResponse.ok) {
@@ -140,7 +153,7 @@ async function testConnection() {
     }
 
     // 如果健康检查失败，进行上传测试
-    await performUploadTest(apiUrl, authCode);
+    await performUploadTest(apiUrl, authCode, apiToken);
 
   } catch (error) {
     const friendlyMessage = getFriendlyErrorMessage(error);
@@ -149,7 +162,7 @@ async function testConnection() {
 }
 
 // 执行上传测试
-async function performUploadTest(apiUrl, authCode) {
+async function performUploadTest(apiUrl, authCode, apiToken) {
   // 创建一个测试用的小图片 (1x1 像素的透明 PNG)
   const testImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
   
@@ -175,9 +188,16 @@ async function performUploadTest(apiUrl, authCode) {
   
   const uploadUrl = `${apiUrl.replace(/\/$/, '')}/upload?${params.toString()}`;
   
+  // API Token 通过 Authorization 请求头传递
+  const headers = {};
+  if (apiToken) {
+    headers['Authorization'] = `Bearer ${apiToken}`;
+  }
+  
   // 使用带超时的 fetch
   const uploadResponse = await fetchWithTimeout(uploadUrl, {
     method: 'POST',
+    headers,
     body: formData
   }, CONSTANTS.TEST_TIMEOUT);
   
@@ -254,21 +274,25 @@ function bindEvents() {
         statusElement.style.display = 'none';
       }
       
-      // 认证码输入框获得焦点时，如果是掩码值则清空
-      if (input.id === 'authCode' && input.dataset.isMasked === 'true') {
+      // 敏感字段输入框获得焦点时，如果是掩码值则清空
+      if (SENSITIVE_CONFIG_KEYS.includes(input.id) && input.dataset.isMasked === 'true') {
         input.value = '';
         input.dataset.isMasked = 'false';
-        input.placeholder = '输入新认证码（留空保持原值）';
+        input.placeholder = input.id === 'apiToken'
+          ? '输入新 API Token（留空保持原值）'
+          : '输入新认证码（留空保持原值）';
       }
     });
     
-    // 认证码输入框失焦时，如果为空则恢复掩码显示
-    if (input.id === 'authCode') {
+    // 敏感字段输入框失焦时，如果为空则恢复掩码显示
+    if (SENSITIVE_CONFIG_KEYS.includes(input.id)) {
       input.addEventListener('blur', () => {
-        if (input.value === '' && originalConfig?.authCode) {
+        if (input.value === '' && originalConfig?.[input.id]) {
           input.value = AUTH_CODE_MASK_MARKER;
           input.dataset.isMasked = 'true';
-          input.placeholder = '输入认证码（如果需要）';
+          input.placeholder = input.id === 'apiToken'
+            ? '输入 API Token'
+            : '输入认证码（如果需要）';
         }
       });
     }

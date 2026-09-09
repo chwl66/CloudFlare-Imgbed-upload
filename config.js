@@ -3,6 +3,7 @@
 const DEFAULT_CONFIG = {
   apiUrl: '', // 空字符串，强制用户配置
   authCode: '',
+  apiToken: '', // API Token（优先于 authCode，通过 Authorization 头传递）
   serverCompress: true,
   uploadChannel: 'telegram',
   autoRetry: true,
@@ -15,7 +16,7 @@ const DEFAULT_CONFIG = {
 // 配置键列表
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
 const CONFIG_META_KEYS = ['_version'];
-const SENSITIVE_CONFIG_KEYS = ['authCode'];
+const SENSITIVE_CONFIG_KEYS = ['authCode', 'apiToken'];
 const SYNC_CONFIG_KEYS = CONFIG_KEYS.filter(key => !SENSITIVE_CONFIG_KEYS.includes(key));
 
 const UPLOAD_TIMEOUT_MIN = 10000;
@@ -168,11 +169,11 @@ async function saveConfig(config, originalConfig = null) {
 
     let value = normalizedConfig[key];
 
-    // 特殊处理认证码：如果是掩码值，保留原值
-    if (key === 'authCode' && isMaskedValue(value)) {
+    // 特殊处理敏感字段（认证码 / API Token）：如果是掩码值，保留原值
+    if (SENSITIVE_CONFIG_KEYS.includes(key) && isMaskedValue(value)) {
       value = typeof originalConfig?.[key] === 'string'
         ? originalConfig[key]
-        : DEFAULT_CONFIG.authCode;
+        : DEFAULT_CONFIG[key];
     }
 
     if (SENSITIVE_CONFIG_KEYS.includes(key)) {
@@ -350,6 +351,7 @@ function getConfigSummary(config) {
   return {
     hasApiUrl: Boolean(normalized.apiUrl),
     hasAuthCode: Boolean(normalized.authCode),
+    hasApiToken: Boolean(normalized.apiToken),
     uploadChannel: normalized.uploadChannel,
     uploadNameType: normalized.uploadNameType,
     returnFormat: normalized.returnFormat,
@@ -369,6 +371,7 @@ function normalizeConfig(config = {}) {
 
   normalized.apiUrl = normalizeApiUrlValue(normalized.apiUrl);
   normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
+  normalized.apiToken = typeof normalized.apiToken === 'string' ? normalized.apiToken.trim() : '';
   normalized.uploadFolder = normalizeUploadFolderValue(normalized.uploadFolder);
 
   normalized.serverCompress = normalizeBooleanValue(normalized.serverCompress, DEFAULT_CONFIG.serverCompress);
