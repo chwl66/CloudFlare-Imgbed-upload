@@ -1,6 +1,7 @@
 // 导入公共配置模块
 importScripts('utils.js');
 importScripts('config.js');
+importScripts('history-store.js');
 
 // 使用公共配置文件中的 DEFAULT_CONFIG、CONFIG_KEYS 和相关函数
 
@@ -211,16 +212,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         log('info', `开始上传文件: ${request.fileName}`);
         const result = await uploadFile(request.fileData, request.fileName);
         log('info', `文件上传成功: ${request.fileName}`, { url: result.url });
+        await recordUploadHistory({
+          source: request.source,
+          fileName: request.fileName,
+          success: true,
+          url: result.url
+        });
         sendResponse({ success: true, result });
       } catch (error) {
         const friendlyMessage = getUserFriendlyErrorMessage(error);
         log('error', `文件上传失败: ${request.fileName}`, { error: error.message });
+        await recordUploadHistory({
+          source: request.source,
+          fileName: request.fileName,
+          success: false,
+          error: friendlyMessage
+        });
         sendResponse({ success: false, error: friendlyMessage });
       }
     })();
     return true; // 保持消息通道开放
   }
-  
+
   if (request.action === 'uploadImageUrl') {
     // 通过 background script 获取跨域图片
     (async () => {
@@ -228,10 +241,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         log('info', `开始上传图片URL: ${request.imageUrl}`);
         const result = await uploadImageFromUrl(request.imageUrl, request.fileName);
         log('info', `图片URL上传成功`, { url: result.url });
+        await recordUploadHistory({
+          source: request.source || UPLOAD_SOURCES.IMAGE,
+          fileName: request.fileName,
+          success: true,
+          url: result.url
+        });
         sendResponse({ success: true, result });
       } catch (error) {
         const friendlyMessage = getUserFriendlyErrorMessage(error);
         log('error', `图片URL上传失败`, { error: error.message, url: request.imageUrl });
+        await recordUploadHistory({
+          source: request.source || UPLOAD_SOURCES.IMAGE,
+          fileName: request.fileName,
+          success: false,
+          error: friendlyMessage
+        });
         sendResponse({ success: false, error: friendlyMessage });
       }
     })();
@@ -248,6 +273,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false; // 同步操作，不需要保持通道
   }
 });
+
+// 写入上传记录（记录失败不影响上传主流程）
+async function recordUploadHistory(entry) {
+  try {
+    await addUploadRecord(entry);
+  } catch (error) {
+    log('warn', '上传记录写入失败', { error: error.message });
+  }
+}
 
 // ==================== 上传功能 ====================
 

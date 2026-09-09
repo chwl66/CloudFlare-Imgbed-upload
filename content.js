@@ -106,7 +106,8 @@ async function handleImageUpload(imageUrl) {
           const uploadResponse = await sendMessageToBackground({
             action: 'uploadImageUrl',
             imageUrl: imageUrl,
-            fileName: fileName
+            fileName: fileName,
+            source: CONSTANTS.UPLOAD_SOURCES.IMAGE
           });
 
           if (uploadResponse.success) {
@@ -146,7 +147,8 @@ async function handleImageUpload(imageUrl) {
         const uploadResponse = await sendMessageToBackground({
           action: 'uploadFile',
           fileData: reader.result,
-          fileName: fileName
+          fileName: fileName,
+          source: CONSTANTS.UPLOAD_SOURCES.IMAGE
         });
 
         console.log('收到响应:', uploadResponse);
@@ -267,7 +269,8 @@ async function handleClipboardUpload() {
         const uploadResponse = await sendMessageToBackground({
           action: 'uploadFile',
           fileData,
-          fileName
+          fileName,
+          source: CONSTANTS.UPLOAD_SOURCES.CLIPBOARD
         });
 
         console.log('收到响应:', uploadResponse);
@@ -356,7 +359,8 @@ function initializeDragAndDrop() {
               const uploadResponse = await sendMessageToBackground({
                 action: 'uploadFile',
                 fileData: reader.result,
-                fileName: file.name
+                fileName: file.name,
+                source: CONSTANTS.UPLOAD_SOURCES.DRAG
               });
               
               console.log('收到响应:', uploadResponse);
