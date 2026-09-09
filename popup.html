@@ -295,7 +295,17 @@
         <option value="telegram">Telegram</option>
         <option value="cfr2">CloudFlare R2</option>
         <option value="s3">S3</option>
+        <option value="discord">Discord</option>
+        <option value="huggingface">Hugging Face</option>
+        <option value="webdav">WebDAV</option>
+        <option value="external">外链渠道</option>
       </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="channelName">渠道名称 (可选)</label>
+      <input type="text" id="channelName" placeholder="例如: r2-main">
+      <div class="help-text">同一渠道配置了多个存储时，指定使用的渠道名称</div>
     </div>
     
     <div class="form-group">

@@ -4,6 +4,7 @@ const DEFAULT_CONFIG = {
   apiUrl: '', // 空字符串，强制用户配置
   authCode: '',
   apiToken: '', // API Token（优先于 authCode，通过 Authorization 头传递）
+  channelName: '', // 指定上传渠道名称（可选，多渠道时使用）
   serverCompress: true,
   uploadChannel: 'telegram',
   autoRetry: true,
@@ -352,6 +353,7 @@ function getConfigSummary(config) {
     hasApiUrl: Boolean(normalized.apiUrl),
     hasAuthCode: Boolean(normalized.authCode),
     hasApiToken: Boolean(normalized.apiToken),
+    channelName: normalized.channelName,
     uploadChannel: normalized.uploadChannel,
     uploadNameType: normalized.uploadNameType,
     returnFormat: normalized.returnFormat,
@@ -372,6 +374,7 @@ function normalizeConfig(config = {}) {
   normalized.apiUrl = normalizeApiUrlValue(normalized.apiUrl);
   normalized.authCode = typeof normalized.authCode === 'string' ? normalized.authCode.trim() : '';
   normalized.apiToken = typeof normalized.apiToken === 'string' ? normalized.apiToken.trim() : '';
+  normalized.channelName = typeof normalized.channelName === 'string' ? normalized.channelName.trim() : '';
   normalized.uploadFolder = normalizeUploadFolderValue(normalized.uploadFolder);
 
   normalized.serverCompress = normalizeBooleanValue(normalized.serverCompress, DEFAULT_CONFIG.serverCompress);

@@ -269,6 +269,10 @@ function buildUploadUrl(config) {
     params.append('authCode', config.authCode);
   }
   
+  if (config.channelName && config.channelName.trim()) {
+    params.append('channelName', config.channelName);
+  }
+  
   if (config.uploadFolder) {
     params.append('uploadFolder', config.uploadFolder);
   }
