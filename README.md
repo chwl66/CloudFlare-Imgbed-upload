@@ -106,18 +106,21 @@ cd cloudflare-imgbed-uploader/image-up
 2. **填写服务信息**
    ```
    API 地址：https://your-imgbed-domain.com
+   API Token：your-api-token（可选，推荐，需 upload 权限）
    认证码：your-auth-code（可选，取决于服务配置）
    ```
+   > API Token 与认证码二选一：配置了 API Token 时通过 `Authorization: Bearer` 请求头传递，否则回退使用认证码。
 
 3. **验证连接**
    - 点击"测试连接"按钮
    - 等待显示"连接测试成功！"
-   - 如果失败，检查地址和认证码是否正确
+   - 如果失败，检查地址和认证信息是否正确
 
 #### 高级配置（可选）
 ```yaml
 存储配置:
-  上传渠道: telegram | cfr2 | s3
+  上传渠道: telegram | cfr2 | s3 | discord | huggingface | webdav | external
+  渠道名称: "r2-main" # 可选，同一渠道配置多个存储时指定
   文件命名: default | index | origin | short
   上传目录: "img/uploads" # 可留空使用根目录
 
@@ -133,7 +136,7 @@ cd cloudflare-imgbed-uploader/image-up
 ```json
 {
   "apiUrl": "https://img.yourblog.com",
-  "authCode": "your-personal-token",
+  "apiToken": "your-api-token",
   "uploadChannel": "telegram",
   "uploadNameType": "default",
   "uploadFolder": "blog/images",
@@ -148,6 +151,7 @@ cd cloudflare-imgbed-uploader/image-up
   "apiUrl": "https://team-img.company.com",
   "authCode": "team-shared-token",
   "uploadChannel": "cfr2",
+  "channelName": "team-r2",
   "uploadNameType": "short",
   "uploadFolder": "team/assets",
   "serverCompress": false,
@@ -160,8 +164,10 @@ cd cloudflare-imgbed-uploader/image-up
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | API 地址 | CloudFlare ImgBed 服务地址 | https://your.domain |
+| API Token | 管理后台创建的 Token（需 upload 权限），与认证码二选一 | 无 |
 | 上传认证码 | 身份验证码 | 无 |
-| 上传渠道 | 存储后端选择 | telegram |
+| 上传渠道 | 存储后端选择（telegram/cfr2/s3/discord/huggingface/webdav/external） | telegram |
+| 渠道名称 | 同一渠道配置多个存储时指定名称 | 无 |
 | 文件命名方式 | 文件名格式 | default |
 | 返回格式 | 链接格式 | default |
 | 上传目录 | 目标目录 | 空（根目录） |

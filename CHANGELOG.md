@@ -1,5 +1,19 @@
 # 📝 更新日志
 
+## [v1.5.0] - 2026-08-16
+
+### ✨ 新增功能
+- **API Token 认证**：支持在管理后台创建的 API Token，通过 `Authorization: Bearer` 请求头传递（需 upload 权限），与认证码二选一
+- **新增上传渠道**：支持 Discord、Hugging Face、WebDAV、外链渠道
+- **渠道名称指定**：同一渠道配置多个存储时，可通过 `channelName` 参数指定使用的渠道
+- **publicUrl 优先**：服务端配置 urlPrefix 时，优先使用返回的 CDN 加速链接
+
+### 🔧 优化改进
+- 敏感字段（认证码 / API Token）统一掩码管理与回退逻辑
+- 测试连接支持 API Token 认证
+
+---
+
 ## [v1.3.0] - 2025-10-10
 
 ### ✨ 新增功能
