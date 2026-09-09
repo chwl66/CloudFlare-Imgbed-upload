@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // 导入公共配置模块
 importScripts('utils.js');
 importScripts('config.js');
@@ -45,11 +44,6 @@ const ErrorTypes = {
   PARSE_ERROR: 'PARSE_ERROR',
   PERMISSION_ERROR: 'PERMISSION_ERROR'
 };
-=======
-import { DEFAULT_CONFIG } from './utils/constants.js';
-import { getConfig } from './utils/config.js';
-import { buildUploadUrl } from './utils/api.js';
->>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
 
 /**
  * 创建标准化错误对象
@@ -80,7 +74,6 @@ function getUserFriendlyErrorMessage(error, status = null) {
 
 // 初始化扩展
 chrome.runtime.onInstalled.addListener(async () => {
-<<<<<<< HEAD
   log('info', '扩展已安装/更新');
 
   // 初始化配置（仅写入 sync 非敏感字段）
@@ -117,12 +110,6 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   log('debug', '配置已初始化', mergedSyncConfig);
 
-=======
-  // 初始化配置
-  const config = await getConfig();
-  await chrome.storage.sync.set(config);
-  
->>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
   // 创建右键菜单
   createContextMenus();
 });
@@ -262,7 +249,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-<<<<<<< HEAD
 // ==================== 上传功能 ====================
 
 /**
@@ -297,24 +283,6 @@ function buildUploadUrl(config) {
  * @returns {Promise<{url: string, formatted: string}>} 处理后的结果
  */
 async function processUploadResponse(uploadResponse, config) {
-=======
-// 简化的上传文件函数
-async function uploadFile(fileData, fileName) {
-  const uploadUrl = await buildUploadUrl();
-  
-  // 将 base64 转换为 blob
-  const response = await fetch(fileData);
-  const blob = await response.blob();
-  
-  const formData = new FormData();
-  formData.append('file', blob, fileName);
-  
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'POST',
-    body: formData
-  });
-  
->>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
   if (!uploadResponse.ok) {
     const errorText = await uploadResponse.text().catch(() => '');
     log('error', '上传请求失败', {
@@ -343,34 +311,8 @@ async function uploadFile(fileData, fileName) {
   
   let imageUrl = result[0].src;
   
-<<<<<<< HEAD
   // 处理URL
   imageUrl = normalizeImageUrl(imageUrl, config.apiUrl);
-=======
-  // 如果返回的是相对路径，添加域名
-  const config = await getConfig();
-  if (imageUrl.startsWith('/')) {
-    imageUrl = config.apiUrl.replace(/\/$/, '') + imageUrl;
-  } else {
-    // 强制域名替换：如果返回链接的域名与配置项中的域名不一致，替换为配置项中的域名
-    try {
-      const configUrl = new URL(config.apiUrl);
-      const returnUrl = new URL(imageUrl);
-      
-      // 如果域名不一致，替换为配置项中的域名
-      if (returnUrl.hostname !== configUrl.hostname) {
-        returnUrl.protocol = configUrl.protocol;
-        returnUrl.hostname = configUrl.hostname;
-        returnUrl.port = configUrl.port;
-        imageUrl = returnUrl.toString();
-        console.log('域名已替换为配置项中的域名:', imageUrl);
-      }
-    } catch (error) {
-      console.warn('域名替换失败:', error);
-      // 如果URL解析失败，保持原链接
-    }
-  }
->>>>>>> b84a2348b46cae4945c15f7cd5e324839198b0d9
   
   return {
     url: imageUrl,
