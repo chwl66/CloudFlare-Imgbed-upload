@@ -3,21 +3,11 @@
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="notification.css">
+  <link rel="stylesheet" href="popup.css">
   <style>
     body {
       width: 420px;
-      padding: 14px 16px;
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      margin: 0;
-      color: #1f2937;
-      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-      animation: popup-fade-in 0.2s ease;
-    }
-
-    @keyframes popup-fade-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
+      padding: 16px 18px;
     }
 
     .header {
@@ -25,25 +15,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .header-icon {
-      width: 26px;
-      height: 26px;
-      flex-shrink: 0;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #0ea5e9, #0284c7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
-    }
-
-    .header-icon svg {
-      width: 15px;
-      height: 15px;
+      margin-bottom: 12px;
     }
 
     .header h2 {
@@ -56,7 +28,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin: 4px 0 6px;
+      margin: 8px 0 8px;
       font-size: 11px;
       font-weight: 600;
       color: #94a3b8;
@@ -71,12 +43,12 @@
     }
 
     .form-group {
-      margin-bottom: 7px;
+      margin-bottom: 12px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 3px;
+      margin-bottom: 5px;
       font-weight: 600;
       color: #475569;
       font-size: 12px;
@@ -86,24 +58,7 @@
     .form-group select {
       width: 100%;
       padding: 7px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 13px;
       box-sizing: border-box;
-      background: #fff;
-      color: #1f2937;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #0ea5e9;
-      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-    }
-
-    .form-group input::placeholder {
-      color: #9ca3af;
     }
 
     .form-row {
@@ -129,7 +84,7 @@
     .checkbox-group {
       display: flex;
       align-items: center;
-      margin-bottom: 9px;
+      margin-bottom: 11px;
     }
 
     .checkbox-group input[type="checkbox"] {
@@ -150,7 +105,7 @@
     .button-group {
       display: flex;
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 16px;
     }
 
     .btn {
@@ -190,16 +145,6 @@
       transform: translateY(0);
     }
 
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #334155;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-
     .status {
       padding: 9px 12px;
       border-radius: 8px;
@@ -224,12 +169,6 @@
       background-color: #d1ecf1;
       color: #0c5460;
       border: 1px solid #bee5eb;
-    }
-
-    .help-text {
-      font-size: 11px;
-      color: #6b7280;
-      margin-top: 2px;
     }
 
     .upload-progress {
@@ -311,11 +250,6 @@
 
     /* 暗色主题支持 */
     @media (prefers-color-scheme: dark) {
-      body {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-        color: #e2e8f0;
-      }
-
       .header h2 {
         color: #e2e8f0;
       }
@@ -328,39 +262,8 @@
         color: #cbd5e1;
       }
 
-      .form-group input,
-      .form-group select {
-        background: #334155;
-        border-color: #475569;
-        color: #e2e8f0;
-      }
-
-      .form-group input::placeholder {
-        color: #64748b;
-      }
-
-      .form-group input:focus,
-      .form-group select:focus {
-        border-color: #0ea5e9;
-        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
-      }
-
       .checkbox-group label {
         color: #cbd5e1;
-      }
-
-      .btn-secondary {
-        background: #334155;
-        color: #e2e8f0;
-        border-color: #475569;
-      }
-
-      .btn-secondary:hover {
-        background: #475569;
-      }
-
-      .help-text {
-        color: #94a3b8;
       }
 
       .upload-progress {
@@ -385,20 +288,17 @@
 
     <div class="form-group">
       <label for="apiUrl">API 地址 *</label>
-      <input type="url" id="apiUrl" placeholder="https://your.domain" required>
-      <div class="help-text">您的 CloudFlare ImgBed 服务地址</div>
+      <input type="url" id="apiUrl" placeholder="https://your.domain（图床服务地址）" required>
     </div>
 
     <div class="form-group">
       <label for="apiToken">API Token (可选，推荐)</label>
-      <input type="password" id="apiToken" placeholder="输入 API Token">
-      <div class="help-text">在 ImgBed 管理后台创建的 API Token，需具备 upload 权限；与认证码二选一</div>
+      <input type="password" id="apiToken" placeholder="输入 API Token（需 upload 权限，与认证码二选一）">
     </div>
 
     <div class="form-group">
       <label for="authCode">上传认证码 (可选)</label>
-      <input type="password" id="authCode" placeholder="输入认证码（如果需要）">
-      <div class="help-text">用于身份验证的认证码，如果服务不需要认证可留空</div>
+      <input type="password" id="authCode" placeholder="输入认证码（服务需要时填写，否则留空）">
     </div>
 
     <div class="section-label">上传设置</div>
@@ -419,8 +319,7 @@
 
       <div class="form-group">
         <label for="channelName">渠道名称 (可选)</label>
-        <input type="text" id="channelName" placeholder="例如: r2-main">
-        <div class="help-text">多渠道时指定渠道名称</div>
+        <input type="text" id="channelName" placeholder="多渠道时指定，如 r2-main">
       </div>
     </div>
 
@@ -437,16 +336,14 @@
 
       <div class="form-group">
         <label for="uploadFolder">上传目录 (可选)</label>
-        <input type="text" id="uploadFolder" placeholder="例如: img/test">
-        <div class="help-text">留空表示上传到根目录</div>
+        <input type="text" id="uploadFolder" placeholder="上传目录（留空为根目录），如 img/test">
       </div>
     </div>
 
     <div class="form-row">
       <div class="form-group">
         <label for="uploadTimeout">上传超时 (秒)</label>
-        <input type="number" id="uploadTimeout" min="10" max="300" value="60">
-        <div class="help-text">默认 60 秒</div>
+        <input type="number" id="uploadTimeout" min="10" max="300" value="60" placeholder="默认 60 秒">
       </div>
 
       <div class="form-group">
@@ -455,7 +352,6 @@
           <option value="full">完整链接 (full)</option>
           <option value="default">短链接 (default)</option>
         </select>
-        <div class="help-text">服务器返回的链接格式</div>
       </div>
     </div>
 

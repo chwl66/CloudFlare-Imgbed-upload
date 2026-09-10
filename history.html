@@ -3,23 +3,13 @@
 <head>
   <meta charset="utf-8">
   <title>上传记录</title>
+  <link rel="stylesheet" href="popup.css">
   <style>
     body {
       width: 720px;
       min-height: 480px;
-      margin: 0;
-      padding: 14px 16px 18px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 16px 18px 20px;
       font-size: 13px;
-      color: #1f2937;
-      box-sizing: border-box;
-      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-      animation: history-fade-in 0.2s ease;
-    }
-
-    @keyframes history-fade-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
     }
 
     *, *::before, *::after {
@@ -31,31 +21,13 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
     }
 
     .header .title {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .header-icon {
-      width: 26px;
-      height: 26px;
-      flex-shrink: 0;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #0ea5e9, #0284c7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
-    }
-
-    .header-icon svg {
-      width: 15px;
-      height: 15px;
     }
 
     .header h2 {
@@ -80,28 +52,12 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
     }
 
     .search-input {
       flex: 1;
-      padding: 7px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 13px;
-      background: #fff;
-      color: #1f2937;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .search-input::placeholder {
-      color: #9ca3af;
-    }
-
-    .search-input:focus {
-      outline: none;
-      border-color: #0ea5e9;
-      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+      padding: 8px 12px;
     }
 
     .filters {
@@ -110,7 +66,7 @@
     }
 
     .chip {
-      padding: 5px 10px;
+      padding: 6px 12px;
       border: 1px solid #d1d5db;
       border-radius: 14px;
       background: #fff;
@@ -149,16 +105,6 @@
       transform: translateY(0);
     }
 
-    .btn-secondary {
-      background: #f1f5f9;
-      color: #334155;
-      border: 1px solid #e2e8f0;
-    }
-
-    .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-
     .btn-danger {
       background: #fee2e2;
       color: #b91c1c;
@@ -176,13 +122,13 @@
     .list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     .item {
       display: flex;
-      gap: 10px;
-      padding: 10px;
+      gap: 12px;
+      padding: 12px;
       background: #fff;
       border: 1px solid #e9ecef;
       border-left: 3px solid #10b981;
@@ -229,7 +175,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .name {
@@ -276,7 +222,7 @@
       padding: 4px 6px;
       border-radius: 3px;
       word-break: break-all;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .error-text {
@@ -286,7 +232,7 @@
       padding: 4px 6px;
       border-radius: 3px;
       word-break: break-word;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .actions {
@@ -296,7 +242,7 @@
     }
 
     .actions .btn {
-      padding: 4px 8px;
+      padding: 5px 10px;
     }
 
     .btn.copied {
@@ -305,7 +251,7 @@
     }
 
     .empty {
-      padding: 40px 0;
+      padding: 48px 0;
       text-align: center;
       color: #888;
       font-size: 13px;
@@ -313,11 +259,6 @@
     }
 
     @media (prefers-color-scheme: dark) {
-      body {
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-        color: #e2e8f0;
-      }
-
       .header h2,
       .name {
         color: #e2e8f0;
@@ -328,30 +269,13 @@
         color: #94a3b8;
       }
 
-      .search-input {
+      .chip {
         background: #334155;
         border-color: #475569;
         color: #e2e8f0;
       }
 
-      .search-input::placeholder {
-        color: #64748b;
-      }
-
-      .search-input:focus {
-        border-color: #0ea5e9;
-        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
-      }
-
-      .chip,
-      .btn-secondary {
-        background: #334155;
-        border-color: #475569;
-        color: #e2e8f0;
-      }
-
-      .chip:hover,
-      .btn-secondary:hover {
+      .chip:hover {
         background: #475569;
       }
 

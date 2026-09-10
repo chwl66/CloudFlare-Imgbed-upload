@@ -1,0 +1,117 @@
+/* ==================== 弹窗公共样式 ==================== */
+/* popup.html（配置弹窗）与 history.html（上传记录弹窗）共用
+   页面专属样式保留在各 HTML 的内联 <style> 中 */
+
+html {
+  background: transparent;
+}
+
+body {
+  box-sizing: border-box;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
+  background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  animation: popup-fade-in 0.2s ease;
+}
+
+@keyframes popup-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 标题渐变图标 */
+.header-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+
+.header-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* 输入框 / 下拉框 / 搜索框 */
+.form-group input,
+.form-group select,
+.search-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  color: #1f2937;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.search-input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.form-group input::placeholder,
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+/* 次要按钮（配色） */
+.btn-secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+/* 暗色模式 */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    color: #e2e8f0;
+    border-color: #334155;
+  }
+
+  .form-group input,
+  .form-group select,
+  .search-input {
+    background: #334155;
+    border-color: #475569;
+    color: #e2e8f0;
+  }
+
+  .form-group input::placeholder,
+  .search-input::placeholder {
+    color: #64748b;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .search-input:focus {
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+  }
+
+  .btn-secondary {
+    background: #334155;
+    color: #e2e8f0;
+    border-color: #475569;
+  }
+
+  .btn-secondary:hover {
+    background: #475569;
+  }
+}

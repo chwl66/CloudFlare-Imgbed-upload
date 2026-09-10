@@ -352,8 +352,8 @@ function bindEvents() {
           input.value = AUTH_CODE_MASK_MARKER;
           input.dataset.isMasked = 'true';
           input.placeholder = input.id === 'apiToken'
-            ? '输入 API Token'
-            : '输入认证码（如果需要）';
+            ? '输入 API Token（需 upload 权限，与认证码二选一）'
+            : '输入认证码（服务需要时填写，否则留空）';
         }
       });
     }
