@@ -180,7 +180,10 @@ async function performUploadTest(apiUrl, authCode, apiToken) {
   
   const uploadChannel = document.getElementById('uploadChannel').value;
   const uploadNameType = document.getElementById('uploadNameType').value;
-  const returnFormat = originalConfig?.returnFormat ?? DEFAULT_CONFIG.returnFormat;
+  // 优先使用当前下拉框选择的返回格式，未选择时回退到已保存配置
+  const returnFormat = document.getElementById('returnFormat')?.value
+    || originalConfig?.returnFormat
+    || DEFAULT_CONFIG.returnFormat;
   const params = new URLSearchParams({
     uploadChannel,
     uploadNameType,

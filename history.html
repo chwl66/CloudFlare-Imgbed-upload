@@ -8,11 +8,18 @@
       width: 720px;
       min-height: 480px;
       margin: 0;
-      padding: 18px 20px 24px;
+      padding: 14px 16px 18px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 13px;
-      color: #333;
+      color: #1f2937;
       box-sizing: border-box;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+      animation: history-fade-in 0.2s ease;
+    }
+
+    @keyframes history-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     *, *::before, *::after {
@@ -24,13 +31,37 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
+    }
+
+    .header .title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-icon {
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    }
+
+    .header-icon svg {
+      width: 15px;
+      height: 15px;
     }
 
     .header h2 {
       margin: 0;
-      font-size: 17px;
-      color: #333;
+      font-size: 16px;
+      color: #334155;
     }
 
     .header-actions {
@@ -49,21 +80,28 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     .search-input {
       flex: 1;
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+      padding: 7px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
       font-size: 13px;
+      background: #fff;
+      color: #1f2937;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input::placeholder {
+      color: #9ca3af;
     }
 
     .search-input:focus {
       outline: none;
-      border-color: #007acc;
-      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+      border-color: #0ea5e9;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
     }
 
     .filters {
@@ -72,10 +110,10 @@
     }
 
     .chip {
-      padding: 6px 12px;
-      border: 1px solid #ddd;
+      padding: 5px 10px;
+      border: 1px solid #d1d5db;
       border-radius: 14px;
-      background: #f3f3f3;
+      background: #fff;
       color: #555;
       font-size: 12px;
       cursor: pointer;
@@ -87,28 +125,38 @@
     }
 
     .chip.active {
-      background: #007acc;
-      border-color: #007acc;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      border-color: transparent;
       color: #fff;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
     }
 
     .btn {
       padding: 7px 12px;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 12px;
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s, transform 0.2s;
       white-space: nowrap;
     }
 
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
     .btn-secondary {
-      background: #f3f3f3;
-      color: #333;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
     }
 
     .btn-secondary:hover {
-      background: #e9e9e9;
+      background: #e2e8f0;
     }
 
     .btn-danger {
@@ -128,17 +176,24 @@
     .list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .item {
       display: flex;
-      gap: 12px;
-      padding: 12px;
-      background: #f8f9fa;
+      gap: 10px;
+      padding: 10px;
+      background: #fff;
       border: 1px solid #e9ecef;
       border-left: 3px solid #10b981;
-      border-radius: 6px;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .item:hover {
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
     }
 
     .item.failed {
@@ -146,16 +201,16 @@
     }
 
     .thumb {
-      width: 56px;
-      height: 56px;
-      flex: 0 0 56px;
-      border-radius: 4px;
+      width: 48px;
+      height: 48px;
+      flex: 0 0 48px;
+      border-radius: 6px;
       background: #e9ecef;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
     }
 
     .thumb img {
@@ -174,7 +229,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .name {
@@ -218,20 +273,20 @@
       font-size: 11px;
       color: #0b5394;
       background: rgba(0, 0, 0, 0.05);
-      padding: 5px 7px;
+      padding: 4px 6px;
       border-radius: 3px;
       word-break: break-all;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .error-text {
       font-size: 12px;
       color: #b91c1c;
       background: rgba(239, 68, 68, 0.08);
-      padding: 5px 7px;
+      padding: 4px 6px;
       border-radius: 3px;
       word-break: break-word;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .actions {
@@ -241,7 +296,7 @@
     }
 
     .actions .btn {
-      padding: 5px 10px;
+      padding: 4px 8px;
     }
 
     .btn.copied {
@@ -250,7 +305,7 @@
     }
 
     .empty {
-      padding: 60px 0;
+      padding: 40px 0;
       text-align: center;
       color: #888;
       font-size: 13px;
@@ -259,7 +314,7 @@
 
     @media (prefers-color-scheme: dark) {
       body {
-        background: #1e293b;
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
         color: #e2e8f0;
       }
 
@@ -279,9 +334,13 @@
         color: #e2e8f0;
       }
 
+      .search-input::placeholder {
+        color: #64748b;
+      }
+
       .search-input:focus {
         border-color: #0ea5e9;
-        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
       }
 
       .chip,
@@ -297,9 +356,10 @@
       }
 
       .chip.active {
-        background: #0284c7;
-        border-color: #0284c7;
+        background: linear-gradient(135deg, #0ea5e9, #0284c7);
+        border-color: transparent;
         color: #fff;
+        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
       }
 
       .btn-danger {
@@ -314,6 +374,11 @@
       .item {
         background: #334155;
         border-color: #475569;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+
+      .item:hover {
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
       }
 
       .thumb,
@@ -348,7 +413,12 @@
 </head>
 <body>
   <div class="header">
-    <h2>上传记录</h2>
+    <div class="title">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+      </div>
+      <h2>上传记录</h2>
+    </div>
     <div class="header-actions">
       <span id="summary" class="summary"></span>
       <button type="button" id="clearBtn" class="btn btn-danger">清空记录</button>

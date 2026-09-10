@@ -162,21 +162,89 @@ cd cloudflare-imgbed-uploader/image-up
 
 ### 配置项详解
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| API 地址 | CloudFlare ImgBed 服务地址 | https://your.domain |
-| API Token | 管理后台创建的 Token（需 upload 权限），与认证码二选一 | 无 |
-| 上传认证码 | 身份验证码 | 无 |
-| 上传渠道 | 存储后端选择（telegram/cfr2/s3/discord/huggingface/webdav/external） | telegram |
-| 渠道名称 | 同一渠道配置多个存储时指定名称 | 无 |
-| 文件命名方式 | 文件名格式 | default |
-| 返回格式 | 链接格式 | default |
-| 上传目录 | 目标目录 | 空（根目录） |
-| 复制格式 | 剪贴板格式 | markdown |
-| 服务端压缩 | Telegram 图片压缩 | 开启 |
-| 自动重试 | 失败重试 | 开启 |
-| 自动复制 | 自动复制链接 | 开启 |
-| 显示通知 | 通知提醒 | 开启 |
+所有配置项均可直接在扩展弹窗中修改。
+
+> **存储说明**：非敏感配置保存在 `chrome.storage.sync`（登录同一浏览器账号可跨设备同步）；敏感配置（API Token、认证码）仅保存在 `chrome.storage.local`，不会同步、不会上传到第三方。旧版本遗留的敏感配置会自动迁移到本地存储。
+
+#### 配置一览
+
+| 配置键 | 名称 | 默认值 | 存储位置 |
+|--------|------|--------|----------|
+| `apiUrl` | API 地址 | 空（必填） | sync |
+| `apiToken` | API Token | 空 | local |
+| `authCode` | 上传认证码 | 空 | local |
+| `uploadChannel` | 上传渠道 | `telegram` | sync |
+| `channelName` | 渠道名称 | 空 | sync |
+| `uploadNameType` | 文件命名方式 | `default` | sync |
+| `returnFormat` | 返回格式 | `full` | sync |
+| `uploadFolder` | 上传目录 | 空（根目录） | sync |
+| `uploadTimeout` | 上传超时 | `60000`（60 秒） | sync |
+| `serverCompress` | 服务端压缩 | `true` | sync |
+| `autoRetry` | 失败自动重试 | `true` | sync |
+
+#### 各项详细说明
+
+**API 地址（`apiUrl`）** — 必填
+- CloudFlare ImgBed 服务根地址，例如 `https://img.example.com`
+- 仅支持 `http:` / `https:` 协议，不能填写示例域名 `your.domain`
+- 末尾的 `/` 会被自动去掉；填写服务根地址即可，不要包含 `/upload` 路径
+
+**API Token（`apiToken`）** — 可选，推荐
+- 在 ImgBed 管理后台创建的 Token，需具备 `upload` 权限
+- 与认证码二选一；配置后通过 `Authorization: Bearer <token>` 请求头传递，优先级高于认证码
+- 敏感信息，仅保存在浏览器本地；保存后重新打开弹窗会以掩码（`••••••`）显示，留空保存不会覆盖原值
+
+**上传认证码（`authCode`）** — 可选
+- 服务端启用了认证码时填写；与 API Token 二选一
+- 未配置 API Token 时，作为 `authCode` 查询参数随上传请求发送
+- 敏感信息，处理方式同 API Token
+
+**上传渠道（`uploadChannel`）**
+
+| 值 | 说明 |
+|----|------|
+| `telegram` | Telegram 存储（默认） |
+| `cfr2` | CloudFlare R2 |
+| `s3` | S3 兼容存储 |
+| `discord` | Discord |
+| `huggingface` | Hugging Face |
+| `webdav` | WebDAV |
+| `external` | 外链渠道 |
+
+**渠道名称（`channelName`）** — 可选
+- 同一渠道配置了多个存储时，指定使用的渠道名称（对应服务端 `channelName` 参数）
+
+**文件命名方式（`uploadNameType`）**
+
+| 值 | 说明 |
+|----|------|
+| `default` | 默认前缀_原名 |
+| `index` | 仅前缀 |
+| `origin` | 仅原名 |
+| `short` | 短链接 |
+
+**返回格式（`returnFormat`）**
+
+| 值 | 说明 |
+|----|------|
+| `full` | 完整链接（默认） |
+| `default` | 短链接（`/file/id` 格式，扩展会自动补全服务端域名） |
+
+**上传目录（`uploadFolder`）** — 可选
+- 留空表示上传到根目录
+- 自动规范化：反斜杠转正斜杠、合并多余斜杠、去除首尾斜杠；不允许包含 `..`
+
+**上传超时（`uploadTimeout`）**
+- 弹窗中以秒为单位显示，存储为毫秒
+- 取值范围 10~300 秒，默认 60 秒；超出范围会自动截断到边界值
+
+**服务端压缩（`serverCompress`）**
+- 开启后由服务端压缩图片；仅对 Telegram 渠道有效
+
+**失败自动重试（`autoRetry`）**
+- 开启后上传失败自动重试，采用指数退避策略（最多 3 次，间隔 1s/2s/4s）
+
+> **配置版本**：`_version` 字段由扩展自动维护，用于配置迁移，无需手动修改。
 
 ## 📖 使用方法
 

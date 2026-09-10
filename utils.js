@@ -37,7 +37,7 @@ const CONSTANTS = {
   // 有效配置值
   VALID_UPLOAD_CHANNELS: ['telegram', 'cfr2', 's3', 'discord', 'huggingface', 'webdav', 'external'],
   VALID_NAME_TYPES: ['default', 'index', 'origin', 'short'],
-  VALID_RETURN_FORMATS: ['full'],
+  VALID_RETURN_FORMATS: ['default', 'full'],
 
   // 上传来源（用于上传记录标识）
   UPLOAD_SOURCES: {

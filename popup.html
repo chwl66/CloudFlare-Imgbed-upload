@@ -5,145 +5,243 @@
   <link rel="stylesheet" href="notification.css">
   <style>
     body {
-      width: 400px;
-      padding: 20px;
+      width: 420px;
+      padding: 14px 16px;
+      box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
+      color: #1f2937;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+      animation: popup-fade-in 0.2s ease;
     }
-    
+
+    @keyframes popup-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     .header {
-      text-align: center;
-      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 8px;
     }
-    
+
+    .header-icon {
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    }
+
+    .header-icon svg {
+      width: 15px;
+      height: 15px;
+    }
+
     .header h2 {
       margin: 0;
-      color: #333;
-      font-size: 18px;
+      color: #334155;
+      font-size: 16px;
     }
-    
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(148, 163, 184, 0.4), rgba(148, 163, 184, 0.05));
+    }
+
     .form-group {
-      margin-bottom: 15px;
+      margin-bottom: 7px;
     }
-    
+
     .form-group label {
       display: block;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
       font-weight: 600;
-      color: #555;
-      font-size: 13px;
+      color: #475569;
+      font-size: 12px;
     }
-    
+
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
+      padding: 7px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
       font-size: 13px;
       box-sizing: border-box;
+      background: #fff;
+      color: #1f2937;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    
+
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #007acc;
-      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+      border-color: #0ea5e9;
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
     }
-    
+
+    .form-group input::placeholder {
+      color: #9ca3af;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .checkbox-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .checkbox-row .checkbox-group {
+      flex: 1;
+      min-width: 0;
+    }
+
     .checkbox-group {
       display: flex;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 9px;
     }
-    
+
     .checkbox-group input[type="checkbox"] {
-      width: auto;
+      width: 15px;
+      height: 15px;
       margin-right: 8px;
+      flex-shrink: 0;
+      cursor: pointer;
+      accent-color: #0ea5e9;
     }
-    
+
     .checkbox-group label {
       margin-bottom: 0;
       font-weight: normal;
       cursor: pointer;
     }
-    
+
     .button-group {
       display: flex;
-      gap: 10px;
-      margin-top: 20px;
+      gap: 8px;
+      margin-top: 10px;
     }
-    
+
     .btn {
       flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 4px;
+      padding: 9px 10px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: background-color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: filter 0.2s, background-color 0.2s, transform 0.2s, box-shadow 0.2s;
     }
-    
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
     .btn-primary {
-      background-color: #007acc;
-      color: white;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color: #fff;
+      border: 1px solid transparent;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
     }
-    
+
     .btn-primary:hover {
-      background-color: #005a9e;
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(2, 132, 199, 0.45);
     }
-    
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
     .btn-secondary {
-      background-color: #f3f3f3;
-      color: #333;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
     }
-    
+
     .btn-secondary:hover {
-      background-color: #e9e9e9;
+      background: #e2e8f0;
     }
-    
+
     .status {
-      padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 15px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
       font-size: 13px;
       display: none;
     }
-    
+
     .status.success {
       background-color: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
     }
-    
+
     .status.error {
       background-color: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
-    
+
     .status.info {
       background-color: #d1ecf1;
       color: #0c5460;
       border: 1px solid #bee5eb;
     }
-    
+
     .help-text {
       font-size: 11px;
-      color: #666;
-      margin-top: 4px;
+      color: #6b7280;
+      margin-top: 2px;
     }
-    
+
     .upload-progress {
-      margin-top: 20px;
-      padding: 15px;
-      background: #f8f9fa;
-      border-radius: 6px;
-      border: 1px solid #e9ecef;
+      margin-top: 16px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       display: none;
     }
-    
+
     .progress-header {
       display: flex;
       justify-content: space-between;
@@ -152,7 +250,7 @@
       font-size: 13px;
       font-weight: 500;
     }
-    
+
     .progress-bar {
       width: 100%;
       height: 8px;
@@ -161,7 +259,7 @@
       overflow: hidden;
       margin-bottom: 10px;
     }
-    
+
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #4CAF50, #2196F3);
@@ -169,93 +267,102 @@
       transition: width 0.3s ease;
       width: 0%;
     }
-    
+
     .upload-result {
       font-size: 12px;
       padding: 8px;
-      border-radius: 4px;
+      border-radius: 6px;
       margin-top: 8px;
       display: none;
     }
-    
+
     .upload-result.success {
       background-color: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
     }
-    
+
     .upload-result.error {
       background-color: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
-    
+
     .upload-result.info {
       background-color: #d1ecf1;
       color: #0c5460;
       border: 1px solid #bee5eb;
     }
-    
+
     .result-link {
       word-break: break-all;
       font-family: monospace;
-      background: rgba(0,0,0,0.1);
+      background: rgba(0, 0, 0, 0.1);
       padding: 4px 6px;
-      border-radius: 3px;
+      border-radius: 5px;
       margin: 4px 0;
       display: block;
       cursor: pointer;
     }
-    
+
     .result-link:hover {
-      background: rgba(0,0,0,0.2);
+      background: rgba(0, 0, 0, 0.2);
     }
-    
+
     /* 暗色主题支持 */
     @media (prefers-color-scheme: dark) {
       body {
-        background: #1e293b;
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
         color: #e2e8f0;
       }
-      
+
       .header h2 {
         color: #e2e8f0;
       }
-      
+
+      .section-label {
+        color: #64748b;
+      }
+
       .form-group label {
         color: #cbd5e1;
       }
-      
+
       .form-group input,
       .form-group select {
         background: #334155;
         border-color: #475569;
         color: #e2e8f0;
       }
-      
+
+      .form-group input::placeholder {
+        color: #64748b;
+      }
+
       .form-group input:focus,
       .form-group select:focus {
         border-color: #0ea5e9;
-        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
       }
-      
+
       .checkbox-group label {
         color: #cbd5e1;
       }
-      
+
       .btn-secondary {
         background: #334155;
         color: #e2e8f0;
+        border-color: #475569;
       }
-      
+
       .btn-secondary:hover {
         background: #475569;
       }
-      
+
       .help-text {
         color: #94a3b8;
       }
-      
+
       .upload-progress {
         background: #334155;
         border-color: #475569;
@@ -265,89 +372,119 @@
 </head>
 <body>
   <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+    </div>
     <h2>CloudFlare ImgBed 配置</h2>
   </div>
-  
+
   <div id="status" class="status"></div>
-  
+
   <form id="configForm">
+    <div class="section-label">连接设置</div>
+
     <div class="form-group">
       <label for="apiUrl">API 地址 *</label>
       <input type="url" id="apiUrl" placeholder="https://your.domain" required>
       <div class="help-text">您的 CloudFlare ImgBed 服务地址</div>
     </div>
-    
+
     <div class="form-group">
       <label for="apiToken">API Token (可选，推荐)</label>
       <input type="password" id="apiToken" placeholder="输入 API Token">
       <div class="help-text">在 ImgBed 管理后台创建的 API Token，需具备 upload 权限；与认证码二选一</div>
     </div>
-    
+
     <div class="form-group">
       <label for="authCode">上传认证码 (可选)</label>
       <input type="password" id="authCode" placeholder="输入认证码（如果需要）">
       <div class="help-text">用于身份验证的认证码，如果服务不需要认证可留空</div>
     </div>
-    
-    <div class="form-group">
-      <label for="uploadChannel">上传渠道</label>
-      <select id="uploadChannel">
-        <option value="telegram">Telegram</option>
-        <option value="cfr2">CloudFlare R2</option>
-        <option value="s3">S3</option>
-        <option value="discord">Discord</option>
-        <option value="huggingface">Hugging Face</option>
-        <option value="webdav">WebDAV</option>
-        <option value="external">外链渠道</option>
-      </select>
-    </div>
-    
-    <div class="form-group">
-      <label for="channelName">渠道名称 (可选)</label>
-      <input type="text" id="channelName" placeholder="例如: r2-main">
-      <div class="help-text">同一渠道配置了多个存储时，指定使用的渠道名称</div>
-    </div>
-    
-    <div class="form-group">
-      <label for="uploadNameType">文件命名方式</label>
-      <select id="uploadNameType">
-        <option value="default">默认前缀_原名</option>
-        <option value="index">仅前缀</option>
-        <option value="origin">仅原名</option>
-        <option value="short">短链接</option>
-      </select>
-    </div>
-    
 
-    
-    <div class="form-group">
-      <label for="uploadFolder">上传目录 (可选)</label>
-      <input type="text" id="uploadFolder" placeholder="例如: img/test">
-      <div class="help-text">留空表示上传到根目录</div>
+    <div class="section-label">上传设置</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="uploadChannel">上传渠道</label>
+        <select id="uploadChannel">
+          <option value="telegram">Telegram</option>
+          <option value="cfr2">CloudFlare R2</option>
+          <option value="s3">S3</option>
+          <option value="discord">Discord</option>
+          <option value="huggingface">Hugging Face</option>
+          <option value="webdav">WebDAV</option>
+          <option value="external">外链渠道</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="channelName">渠道名称 (可选)</label>
+        <input type="text" id="channelName" placeholder="例如: r2-main">
+        <div class="help-text">多渠道时指定渠道名称</div>
+      </div>
     </div>
-    
-    <div class="form-group">
-      <label for="uploadTimeout">上传超时 (秒)</label>
-      <input type="number" id="uploadTimeout" min="10" max="300" value="60">
-      <div class="help-text">上传超时时间，默认60秒</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="uploadNameType">文件命名方式</label>
+        <select id="uploadNameType">
+          <option value="default">默认前缀_原名</option>
+          <option value="index">仅前缀</option>
+          <option value="origin">仅原名</option>
+          <option value="short">短链接</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="uploadFolder">上传目录 (可选)</label>
+        <input type="text" id="uploadFolder" placeholder="例如: img/test">
+        <div class="help-text">留空表示上传到根目录</div>
+      </div>
     </div>
-    
-    <div class="checkbox-group">
-      <input type="checkbox" id="serverCompress">
-      <label for="serverCompress">服务端压缩 (仅Telegram图片)</label>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="uploadTimeout">上传超时 (秒)</label>
+        <input type="number" id="uploadTimeout" min="10" max="300" value="60">
+        <div class="help-text">默认 60 秒</div>
+      </div>
+
+      <div class="form-group">
+        <label for="returnFormat">返回格式</label>
+        <select id="returnFormat">
+          <option value="full">完整链接 (full)</option>
+          <option value="default">短链接 (default)</option>
+        </select>
+        <div class="help-text">服务器返回的链接格式</div>
+      </div>
     </div>
-    
-    <div class="checkbox-group">
-      <input type="checkbox" id="autoRetry">
-      <label for="autoRetry">失败时自动重试</label>
+
+    <div class="form-row checkbox-row">
+      <div class="checkbox-group">
+        <input type="checkbox" id="serverCompress">
+        <label for="serverCompress">服务端压缩 (仅 Telegram)</label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="autoRetry">
+        <label for="autoRetry">失败时自动重试</label>
+      </div>
     </div>
-    
+
     <div class="button-group">
-      <button type="submit" class="btn btn-primary">保存配置</button>
-      <button type="button" id="testBtn" class="btn btn-secondary">测试连接</button>
-      <button type="button" id="historyBtn" class="btn btn-secondary">上传记录</button>
+      <button type="submit" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+        保存配置
+      </button>
+      <button type="button" id="testBtn" class="btn btn-secondary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><path d="M12 17v5"/><path d="M5 8h14"/><path d="M6 8v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/></svg>
+        测试连接
+      </button>
+      <button type="button" id="historyBtn" class="btn btn-secondary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+        上传记录
+      </button>
     </div>
-    
+
     <!-- 上传进度区域 -->
     <div id="uploadProgress" class="upload-progress">
       <div class="progress-header">
@@ -360,7 +497,7 @@
       <div id="uploadResult" class="upload-result"></div>
     </div>
   </form>
-  
+
   <script src="utils.js"></script>
   <script src="config.js"></script>
   <script src="popup.js"></script>
