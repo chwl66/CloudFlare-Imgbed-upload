@@ -24,7 +24,7 @@ const UPLOAD_TIMEOUT_MIN = 10000;
 const UPLOAD_TIMEOUT_MAX = 300000;
 
 // 配置版本管理
-const CONFIG_VERSION = '1.3.0';
+const CONFIG_VERSION = '1.4.0';
 
 // 认证码掩码标记
 const AUTH_CODE_MASK_MARKER = '••••••';
@@ -309,6 +309,13 @@ async function migrateConfigIfNeeded(config) {
   if (compareVersions(currentVersion, '1.3.0') < 0) {
     config.uploadFolder = normalizeUploadFolderValue(config.uploadFolder);
     config.apiUrl = normalizeApiUrlValue(config.apiUrl);
+  }
+
+  if (compareVersions(currentVersion, '1.4.0') < 0) {
+    // 1.4.0：上传渠道枚举对齐上游官方 /upload 接口，移除不存在的 external 渠道
+    if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(config.uploadChannel)) {
+      config.uploadChannel = DEFAULT_CONFIG.uploadChannel;
+    }
   }
   
   // 保存迁移后的配置与新版本（仅 sync 非敏感字段）

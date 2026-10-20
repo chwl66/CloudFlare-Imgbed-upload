@@ -1,0 +1,12 @@
+# 本地工具与 AI 助手缓存
+.workbuddy-ai/
+
+# 打包扩展产生的文件（README「打包安装」步骤生成）
+*.crx
+*.pem
+*.zip
+
+# 依赖与系统文件
+node_modules/
+.DS_Store
+Thumbs.db

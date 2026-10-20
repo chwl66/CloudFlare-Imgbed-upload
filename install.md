@@ -12,18 +12,17 @@
 ### 文件结构检查
 确保下载的扩展文件夹包含以下完整结构：
 ```
-image-up/
+CloudFlare-Imgbed-upload/
 ├── 📄 manifest.json          # 扩展清单文件
-├── 🔧 background.js          # 后台服务脚本
-├── 📝 content.js             # 内容脚本
-├── 🔔 notification.js        # 通知功能
-├── 🎨 popup.html             # 配置界面
-├── ⚙️ popup.js              # 配置逻辑
-├── 📁 icons/                 # 图标文件夹
-│   ├── icon.svg              # 主图标
-│   ├── icon16.svg            # 16px图标
-│   ├── icon48.svg            # 48px图标
-│   └── icon128.svg           # 128px图标
+├── 🔧 background.js          # 后台服务（上传、分块上传、记录写入）
+├── 📝 content.js             # 内容脚本（右键 / 剪贴板 / 拖拽入口）
+├── 🧰 utils.js               # 公共工具与常量
+├── ⚙️ config.js              # 配置定义、校验与版本迁移
+├── 🗂️ history-store.js       # 上传记录存储
+├── 🔔 notification.js/.css   # 上传结果通知
+├── 🎨 popup.html/.js/.css    # 配置弹窗
+├── 🕘 history.html/.js       # 上传记录窗口
+├── 📁 icons/                 # 图标文件夹（16/48/128 PNG）
 ├── 📖 README.md              # 说明文档
 └── 📋 install.md             # 本安装指南
 ```
@@ -66,7 +65,7 @@ chrome://extensions/
    - 按钮出现在开发者模式启用后
 
 2. **选择扩展文件夹**
-   - 浏览到下载的 `image-up` 文件夹
+   - 浏览到下载的 `CloudFlare-Imgbed-upload` 文件夹
    - 选择整个文件夹（不是文件夹内的单个文件）
    - 点击"选择文件夹"确认
 
@@ -80,8 +79,8 @@ chrome://extensions/
 #### 检查清单
 - [ ] 扩展在列表中显示为"已启用"
 - [ ] 浏览器工具栏出现扩展图标 📷
-- [ ] 右键网页显示"ImgBed 配置"菜单项
 - [ ] 在图片上右键显示"上传图片到 ImgBed"选项
+- [ ] 在网页空白处右键显示"上传剪贴板图片到 ImgBed"选项
 
 #### 可能的问题
 ```bash
@@ -102,8 +101,7 @@ chrome://extensions/
 #### 1. 打开配置界面
 ```
 方式1：点击工具栏扩展图标 📷
-方式2：右键网页 → "ImgBed 配置"
-方式3：扩展管理页面 → 扩展详情 → 扩展选项
+方式2：扩展管理页面 → 扩展详情 → 扩展选项
 ```
 
 #### 2. 基础配置（必填）
@@ -382,9 +380,8 @@ JPG, JPEG, PNG, GIF, WebP, BMP, TIFF
 - 开发者工具中的错误日志
 
 **联系方式：**
-- 📧 邮箱：support@your-domain.com
-- 🐛 GitHub Issues：[项目地址]/issues
-- 💬 QQ群：123456789
+- 🐛 [GitHub Issues](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues)
+- 📚 服务端问题请查阅 [CloudFlare ImgBed 文档](https://cfbed.sanyue.de)
 
 ---
 
@@ -393,8 +390,8 @@ JPG, JPEG, PNG, GIF, WebP, BMP, TIFF
 安装完成后，请确认以下功能正常：
 
 - [ ] 扩展图标显示在浏览器工具栏
-- [ ] 右键网页显示"ImgBed 配置"菜单
 - [ ] 右键图片显示"上传图片到 ImgBed"菜单
+- [ ] 右键网页空白处显示"上传剪贴板图片到 ImgBed"菜单
 - [ ] 配置界面可以正常打开和保存
 - [ ] 测试连接功能正常
 - [ ] 能够成功上传图片并获得链接

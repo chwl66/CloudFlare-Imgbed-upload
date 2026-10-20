@@ -138,18 +138,58 @@ function createContextMenus() {
   });
 }
 
+// 确保标签页内已加载内容脚本（扩展更新后旧标签页不会自动注入，需要补注入）
+async function ensureContentScript(tabId) {
+  try {
+    const pong = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+    if (pong && pong.pong) return true;
+  } catch (error) {
+    log('debug', '内容脚本未响应，准备注入', { tabId, error: error.message });
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['utils.js', 'notification.js', 'content.js']
+    });
+  } catch (error) {
+    log('warn', '注入内容脚本失败', { tabId, error: error.message });
+    return false;
+  }
+
+  try {
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ['notification.css'] });
+  } catch (error) {
+    // 样式注入失败不影响上传功能
+    log('debug', '注入通知样式失败', { tabId, error: error.message });
+  }
+
+  log('info', '已向标签页补注入内容脚本', { tabId });
+  return true;
+}
+
 // 发送右键菜单消息并统一处理错误反馈
-function sendContextMenuMessage(tabId, message, actionLabel) {
+async function sendContextMenuMessage(tabId, message, actionLabel) {
   if (typeof tabId !== 'number') {
     log('error', `${actionLabel}失败：无效标签页`, { tabId });
     showContextMenuError(`${actionLabel}失败：无法定位当前页面`);
     return;
   }
 
+  const ready = await ensureContentScript(tabId);
+  if (!ready) {
+    showContextMenuError(`${actionLabel}失败：当前页面不支持扩展操作，请刷新页面后重试`);
+    return;
+  }
+
   chrome.tabs.sendMessage(tabId, message, (response) => {
     if (chrome.runtime.lastError) {
-      log('error', `${actionLabel}失败：消息发送异常`, { error: chrome.runtime.lastError.message });
-      showContextMenuError(`${actionLabel}失败：${chrome.runtime.lastError.message}`);
+      const raw = chrome.runtime.lastError.message || '';
+      const hint = /Receiving end does not exist|Could not establish connection/i.test(raw)
+        ? '页面未加载扩展脚本，请刷新页面后重试'
+        : raw;
+      log('error', `${actionLabel}失败：消息发送异常`, { error: raw });
+      showContextMenuError(`${actionLabel}失败：${hint}`);
       return;
     }
 
@@ -190,12 +230,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         action: 'uploadClipboard'
       }, '上传剪贴板图片');
       break;
-
-    case 'open-config':
-      // 打开配置页面
-      chrome.action.openPopup();
-      break;
   }
+});
+
+// 处理扩展快捷键（可在 chrome://extensions/shortcuts 中自定义）
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'upload-clipboard') return;
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    showContextMenuError('上传剪贴板图片失败：无法定位当前页面');
+    return;
+  }
+
+  sendContextMenuMessage(tab.id, { action: 'uploadClipboard' }, '上传剪贴板图片');
 });
 
 
@@ -263,6 +311,108 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // 保持消息通道开放
   }
   
+  if (request.action === 'getUploadPlan') {
+    // 内容脚本据此决定走单请求还是分块上传
+    (async () => {
+      try {
+        const config = await getConfig();
+        const channel = config.uploadChannel;
+
+        sendResponse({
+          success: true,
+          plan: {
+            channel,
+            limit: getChannelLimit(channel),
+            chunkSize: getChunkSize(channel),
+            supportsChunked: supportsChunkedUpload(channel),
+            chunkedThreshold: CONSTANTS.CHUNKED_UPLOAD_THRESHOLD,
+            timeout: config.uploadTimeout
+          }
+        });
+      } catch (error) {
+        log('error', '获取上传计划失败', { error: error.message });
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'chunkedUploadInit') {
+    (async () => {
+      try {
+        const config = await getConfig();
+        log('info', `初始化分块上传: ${request.fileName}`, { totalChunks: request.totalChunks });
+        const uploadId = await initChunkedUpload(
+          config,
+          request.fileName,
+          request.fileType,
+          request.totalChunks
+        );
+        sendResponse({ success: true, uploadId });
+      } catch (error) {
+        sendResponse({ success: false, error: getUserFriendlyErrorMessage(error) });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'chunkedUploadChunk') {
+    (async () => {
+      try {
+        const config = await getConfig();
+        const chunkBlob = await (await fetch(request.chunkData)).blob();
+        await uploadChunk(config, { ...request, chunkBlob });
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: getUserFriendlyErrorMessage(error) });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'chunkedUploadMerge') {
+    (async () => {
+      try {
+        const config = await getConfig();
+        log('info', `合并分块: ${request.fileName}`, { uploadId: request.uploadId });
+        const result = await mergeChunkedUpload(config, request);
+        await recordUploadHistory({
+          source: request.source,
+          fileName: request.fileName,
+          success: true,
+          url: result.url
+        });
+        sendResponse({ success: true, result });
+      } catch (error) {
+        const friendlyMessage = getUserFriendlyErrorMessage(error);
+        log('error', `分块上传合并失败: ${request.fileName}`, { error: error.message });
+        await recordUploadHistory({
+          source: request.source,
+          fileName: request.fileName,
+          success: false,
+          error: friendlyMessage
+        });
+        sendResponse({ success: false, error: friendlyMessage });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'chunkedUploadAbort') {
+    (async () => {
+      try {
+        const config = await getConfig();
+        await cleanupChunkedUpload(config, request.uploadId, request.totalChunks);
+        log('info', '已清理分块上传会话', { uploadId: request.uploadId });
+        sendResponse({ success: true });
+      } catch (error) {
+        log('warn', '清理分块上传会话失败', { error: error.message });
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+
   if (request.action === 'copyToClipboard') {
     // 通过 content script 复制到剪贴板
     log('debug', '请求复制到剪贴板');
@@ -377,33 +527,24 @@ async function processUploadResponse(uploadResponse, config) {
 
 /**
  * 规范化图片URL
+ *
+ * 只处理服务端返回的相对路径（returnFormat=default 时 src 形如 /file/xxx）。
+ * 绝对地址一律原样返回：服务端返回的 publicUrl 由「默认 URL 前缀」拼接而成，
+ * 域名通常与站点域名不同（CDN 加速域名），改写 hostname 会直接破坏该链接。
+ *
  * @param {string} imageUrl - 原始图片URL
  * @param {string} apiUrl - API地址
  * @returns {string} 规范化后的URL
  */
 function normalizeImageUrl(imageUrl, apiUrl) {
-  // 如果返回的是相对路径，添加域名
+  if (typeof imageUrl !== 'string' || !imageUrl) return imageUrl;
+
+  // 相对路径补全服务端域名
   if (imageUrl.startsWith('/')) {
     return apiUrl.replace(/\/$/, '') + imageUrl;
   }
-  
-  // 智能域名替换
-  try {
-    const configUrl = new URL(apiUrl);
-    const returnUrl = new URL(imageUrl);
-    
-    if (returnUrl.hostname !== configUrl.hostname) {
-      returnUrl.protocol = configUrl.protocol;
-      returnUrl.hostname = configUrl.hostname;
-      returnUrl.port = configUrl.port;
-      const newUrl = returnUrl.toString();
-      log('info', '域名已替换为配置项中的域名', { newUrl });
-      return newUrl;
-    }
-  } catch (error) {
-    log('warn', '域名替换失败', { error: error.message });
-  }
-  
+
+  // 绝对地址（含 publicUrl）保持原样
   return imageUrl;
 }
 
@@ -436,7 +577,21 @@ async function uploadFile(fileData, fileName) {
     // 将 base64 转换为 blob
     response = await fetch(fileData);
     blob = await response.blob();
-    
+
+    // 按渠道校验文件大小（与上游官方限制保持一致）
+    const channelLimit = getChannelLimit(config.uploadChannel);
+    if (blob.size > channelLimit) {
+      throw createError(
+        ErrorTypes.UPLOAD_ERROR,
+        `文件大小 ${formatFileSize(blob.size)} 超过 ${config.uploadChannel} 渠道上限 ${formatFileSize(channelLimit)}`
+      );
+    }
+
+    // 大文件自动走分块（仅支持分块的渠道），避免单请求体超限
+    if (supportsChunkedUpload(config.uploadChannel) && blob.size > CONSTANTS.CHUNKED_UPLOAD_THRESHOLD) {
+      return await uploadBlobChunkedDirect(config, blob, fileName);
+    }
+
     const formData = new FormData();
     formData.append('file', blob, fileName);
     
@@ -472,14 +627,235 @@ async function uploadFile(fileData, fileName) {
     return await processUploadResponse(uploadResponse, config);
     
   } finally {
-    // 清理资源
-    if (response && response.body) {
-      try {
-        response.body.cancel();
-      } catch (e) {
-        // 忽略清理错误
-      }
+    // 清理资源：body 已被消费时 cancel() 会抛错，需先判断 bodyUsed 并吞掉 Promise 拒绝
+    if (response && response.body && !response.bodyUsed) {
+      response.body.cancel().catch(() => {});
     }
+  }
+}
+
+// ==================== 分块上传 ====================
+// 对应上游官方文档的分块流程：初始化 → 逐块上传 → 合并；中途失败可发清理请求
+
+/**
+ * 构建上传基础地址
+ * @param {Object} config - 配置对象
+ * @returns {string}
+ */
+function buildUploadBaseUrl(config) {
+  return `${config.apiUrl.replace(/\/$/, '')}/upload`;
+}
+
+/**
+ * 构建分块上传的查询串（认证信息与非敏感参数）
+ * @param {Object} config - 配置对象
+ * @param {Object} extra - 额外参数
+ * @returns {string}
+ */
+function buildChunkedQuery(config, extra = {}) {
+  const params = new URLSearchParams({ uploadChannel: config.uploadChannel });
+
+  if (config.channelName && config.channelName.trim()) {
+    params.append('channelName', config.channelName);
+  }
+  if (config.authCode && config.authCode.trim()) {
+    params.append('authCode', config.authCode);
+  }
+
+  Object.entries(extra).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      params.append(key, String(value));
+    }
+  });
+
+  return params.toString();
+}
+
+/**
+ * 解析分块相关接口的 JSON 响应
+ * @param {Response} response - fetch 响应
+ * @param {string} actionLabel - 操作名称（用于错误提示）
+ * @returns {Promise<any>}
+ */
+async function parseChunkResponse(response, actionLabel) {
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    log('error', `${actionLabel}失败`, {
+      status: response.status,
+      statusText: response.statusText,
+      response: errorText.substring(0, 200)
+    });
+    throw createError(
+      ErrorTypes.UPLOAD_ERROR,
+      `${actionLabel}失败: ${response.status} ${response.statusText}`
+    );
+  }
+
+  try {
+    const data = await response.json();
+
+    // 上游分块接口可能以 200 + { success: false, message } 形式返回失败
+    if (data && data.success === false) {
+      throw createError(
+        ErrorTypes.UPLOAD_ERROR,
+        `${actionLabel}失败: ${data.message || data.error || '服务端返回失败'}`
+      );
+    }
+
+    return data;
+  } catch (parseError) {
+    if (parseError.type) throw parseError;
+    log('error', `${actionLabel}响应解析失败`, { error: parseError.message });
+    throw createError(ErrorTypes.PARSE_ERROR, '服务器返回格式错误，无法解析 JSON');
+  }
+}
+
+/**
+ * 第一步：初始化分块上传会话
+ * @returns {Promise<string>} uploadId
+ */
+async function initChunkedUpload(config, fileName, fileType, totalChunks) {
+  const url = `${buildUploadBaseUrl(config)}?${buildChunkedQuery(config, { initChunked: 'true' })}`;
+
+  const formData = new FormData();
+  formData.append('originalFileName', fileName);
+  formData.append('originalFileType', fileType);
+  formData.append('totalChunks', String(totalChunks));
+
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: buildUploadHeaders(config),
+    body: formData
+  }, config.uploadTimeout);
+
+  const data = await parseChunkResponse(response, '初始化分块上传');
+  if (!data || !data.uploadId) {
+    throw createError(ErrorTypes.UPLOAD_ERROR, '初始化分块上传失败：服务端未返回 uploadId');
+  }
+
+  log('info', '分块上传已初始化', { uploadId: data.uploadId, totalChunks });
+  return data.uploadId;
+}
+
+/**
+ * 第二步：上传单个分块
+ * @param {Object} payload - 分块信息（含 chunkBlob）
+ * @returns {Promise<boolean>}
+ */
+async function uploadChunk(config, payload) {
+  const { uploadId, chunkIndex, totalChunks, fileName, fileType, chunkBlob } = payload;
+  const url = `${buildUploadBaseUrl(config)}?${buildChunkedQuery(config, { chunked: 'true' })}`;
+
+  const formData = new FormData();
+  formData.append('file', chunkBlob, fileName);
+  formData.append('uploadId', uploadId);
+  formData.append('chunkIndex', String(chunkIndex));
+  formData.append('totalChunks', String(totalChunks));
+  formData.append('originalFileName', fileName);
+  formData.append('originalFileType', fileType);
+
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: buildUploadHeaders(config),
+    body: formData
+  }, config.uploadTimeout);
+
+  await parseChunkResponse(response, `上传分块 ${chunkIndex + 1}/${totalChunks}`);
+  return true;
+}
+
+/**
+ * 第三步：合并分块
+ * @param {Object} payload - 合并信息
+ * @returns {Promise<{url: string, formatted: string}>}
+ */
+async function mergeChunkedUpload(config, payload) {
+  const { uploadId, totalChunks, fileName, fileType } = payload;
+
+  const extra = {
+    chunked: 'true',
+    merge: 'true',
+    returnFormat: config.returnFormat
+  };
+  if (config.uploadFolder) {
+    extra.uploadFolder = config.uploadFolder;
+  }
+
+  const url = `${buildUploadBaseUrl(config)}?${buildChunkedQuery(config, extra)}`;
+
+  const formData = new FormData();
+  formData.append('uploadId', uploadId);
+  formData.append('totalChunks', String(totalChunks));
+  formData.append('originalFileName', fileName);
+  formData.append('originalFileType', fileType);
+
+  const requestOptions = {
+    method: 'POST',
+    headers: buildUploadHeaders(config),
+    body: formData
+  };
+
+  const response = config.autoRetry
+    ? await fetchWithRetry(url, requestOptions, {
+        maxRetries: CONSTANTS.MAX_RETRIES,
+        timeout: config.uploadTimeout,
+        shouldRetry: (error, resp) => (error ? true : Boolean(resp && resp.status >= 500))
+      })
+    : await fetchWithTimeout(url, requestOptions, config.uploadTimeout);
+
+  return processUploadResponse(response, config);
+}
+
+/**
+ * 清理分块上传会话（失败或取消时释放服务端临时数据）
+ */
+async function cleanupChunkedUpload(config, uploadId, totalChunks) {
+  const url = `${buildUploadBaseUrl(config)}?${buildChunkedQuery(config, {
+    cleanup: 'true',
+    uploadId,
+    totalChunks
+  })}`;
+
+  await fetchWithTimeout(url, { method: 'POST' }, CONSTANTS.CONNECTION_TIMEOUT);
+}
+
+/**
+ * 后台内部的完整分块上传（用于跨域图片转存等已在后台拿到 Blob 的场景）
+ * 分块直接以 Blob 切片提交，避免 base64 往返带来的内存开销
+ *
+ * @param {Object} config - 配置对象
+ * @param {Blob} blob - 文件数据
+ * @param {string} fileName - 文件名
+ * @returns {Promise<{url: string, formatted: string}>}
+ */
+async function uploadBlobChunkedDirect(config, blob, fileName) {
+  const fileType = blob.type || 'application/octet-stream';
+  const chunkSize = getChunkSize(config.uploadChannel);
+  const totalChunks = Math.ceil(blob.size / chunkSize);
+
+  log('info', '开始分块上传', { fileName, size: blob.size, chunkSize, totalChunks });
+
+  const uploadId = await initChunkedUpload(config, fileName, fileType, totalChunks);
+
+  try {
+    for (let index = 0; index < totalChunks; index += 1) {
+      const start = index * chunkSize;
+      const chunkBlob = blob.slice(start, Math.min(start + chunkSize, blob.size));
+
+      await uploadChunk(config, {
+        uploadId,
+        chunkIndex: index,
+        totalChunks,
+        fileName,
+        fileType,
+        chunkBlob
+      });
+    }
+
+    return await mergeChunkedUpload(config, { uploadId, totalChunks, fileName, fileType });
+  } catch (error) {
+    cleanupChunkedUpload(config, uploadId, totalChunks).catch(() => {});
+    throw error;
   }
 }
 

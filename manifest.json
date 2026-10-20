@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "CloudFlare ImgBed 上传器",
-  "version": "1.7.1",
+  "version": "1.8.1",
   "description": "右键上传图片到 CloudFlare ImgBed 图床",
   "permissions": [
     "contextMenus",
     "storage",
     "activeTab",
     "clipboardRead",
-    "notifications"
+    "notifications",
+    "scripting"
   ],
   "host_permissions": [
     "*://*/*"
@@ -28,6 +29,15 @@
     "default_popup": "popup.html",
     "default_title": "CloudFlare ImgBed 配置",
     "default_icon": "icons/icon48.png"
+  },
+  "commands": {
+    "upload-clipboard": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "上传剪贴板图片到 ImgBed"
+    }
   },
   "icons": {
     "16": "icons/icon16.png",

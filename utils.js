@@ -2,11 +2,38 @@
 // 提供统一的工具函数，避免代码重复
 
 // ==================== 常量定义 ====================
+const MB = 1024 * 1024;
+
 const CONSTANTS = {
   // 文件相关
-  CHUNK_SIZE: 8192,
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+  CHUNK_SIZE: 8192, // base64 编码时每次处理的字节数
+  MAX_FILE_SIZE: 100 * MB, // 单次请求体硬上限（Cloudflare Pages 部署上限 100MB）
   TRUNCATE_LENGTH: 55,
+
+  // 各渠道单文件上限（依据上游官方 API 文档：cfbed.sanyue.de/api/upload.html）
+  // 支持分块上传的渠道按 Cloudflare Pages 的 100MB 请求体上限处理
+  CHANNEL_LIMITS: {
+    telegram: 100 * MB,
+    cfr2: 100 * MB,
+    s3: 100 * MB,
+    discord: 100 * MB,
+    huggingface: 20 * MB, // ≥20MB 需走 HuggingFace 直传流程，扩展暂未实现
+    webdav: 100 * MB
+  },
+
+  // 支持分块上传的渠道（HuggingFace 有独立的直传流程，WebDAV 不支持分块）
+  CHUNKED_CHANNELS: ['telegram', 'cfr2', 's3', 'discord'],
+
+  // 各渠道推荐分块大小（官方文档建议值）
+  CHUNK_SIZE_BY_CHANNEL: {
+    telegram: 16 * MB,
+    cfr2: 8 * MB,
+    s3: 8 * MB,
+    discord: 8 * MB
+  },
+
+  // 超过该大小才走分块上传，小文件仍走单请求
+  CHUNKED_UPLOAD_THRESHOLD: 8 * MB,
   
   // 超时设置
   UPLOAD_TIMEOUT: 60000, // 60秒（可配置）
@@ -17,11 +44,6 @@ const CONSTANTS = {
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000, // 1秒
   RETRY_BACKOFF: 2, // 指数退避倍数
-  
-  // 快捷键
-  SHORTCUT_KEYS: {
-    UPLOAD_CLIPBOARD: 'ctrl+shift+u'
-  },
   
   // 图片文件签名
   IMAGE_SIGNATURES: {
@@ -34,8 +56,8 @@ const CONSTANTS = {
     'image/ico': [0x00, 0x00, 0x01, 0x00]
   },
   
-  // 有效配置值
-  VALID_UPLOAD_CHANNELS: ['telegram', 'cfr2', 's3', 'discord', 'huggingface', 'webdav', 'external'],
+  // 有效配置值（与上游官方 /upload 接口的 uploadChannel 枚举保持一致，不含 external）
+  VALID_UPLOAD_CHANNELS: ['telegram', 'cfr2', 's3', 'discord', 'huggingface', 'webdav'],
   VALID_NAME_TYPES: ['default', 'index', 'origin', 'short'],
   VALID_RETURN_FORMATS: ['default', 'full'],
 
@@ -60,6 +82,48 @@ const CONSTANTS = {
     /^169\.254\./       // 链路本地地址
   ]
 };
+
+// ==================== 上传能力工具 ====================
+
+/**
+ * 获取指定渠道的单文件上限
+ * @param {string} channel - 上传渠道
+ * @returns {number} 字节数
+ */
+function getChannelLimit(channel) {
+  return CONSTANTS.CHANNEL_LIMITS[channel] || CONSTANTS.MAX_FILE_SIZE;
+}
+
+/**
+ * 获取指定渠道的分块大小
+ * @param {string} channel - 上传渠道
+ * @returns {number} 字节数
+ */
+function getChunkSize(channel) {
+  return CONSTANTS.CHUNK_SIZE_BY_CHANNEL[channel] || CONSTANTS.CHUNKED_UPLOAD_THRESHOLD;
+}
+
+/**
+ * 判断渠道是否支持分块上传
+ * @param {string} channel - 上传渠道
+ * @returns {boolean}
+ */
+function supportsChunkedUpload(channel) {
+  return CONSTANTS.CHUNKED_CHANNELS.includes(channel);
+}
+
+/**
+ * 格式化文件大小（用于提示文案）
+ * @param {number} bytes - 字节数
+ * @returns {string} 如 "12.3MB"
+ */
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size < 0) return '未知大小';
+  if (size < 1024) return `${size}B`;
+  if (size < MB) return `${(size / 1024).toFixed(1)}KB`;
+  return `${(size / MB).toFixed(1)}MB`;
+}
 
 // ==================== 网络请求工具 ====================
 
@@ -212,11 +276,14 @@ function validateImageUrl(url) {
  * @returns {Promise<boolean>} 是否为有效图片
  */
 async function validateImageFile(file, options = {}) {
-  const { maxSize = CONSTANTS.MAX_FILE_SIZE, strictMode = false } = options;
+  const { maxSize = CONSTANTS.MAX_FILE_SIZE, strictMode = false, channel = '' } = options;
   
   // 检查文件大小
   if (file.size > maxSize) {
-    throw new Error(`文件大小超过限制 (${maxSize / 1024 / 1024}MB)`);
+    const channelHint = channel ? `（${channel} 渠道）` : '';
+    throw new Error(
+      `文件大小 ${formatFileSize(file.size)} 超过上限 ${formatFileSize(maxSize)}${channelHint}`
+    );
   }
   
   // 检查文件是否为空
@@ -357,7 +424,7 @@ function getFriendlyErrorMessage(error, status = null) {
   if (message.includes('timeout') || message.includes('AbortError')) {
     return '请求超时，请检查网络或稍后重试';
   }
-  if (message.includes('文件大小超过限制')) {
+  if (message.includes('超过上限') || message.includes('文件大小超过限制')) {
     return message;
   }
   if (message.includes('不是有效的图片文件')) {

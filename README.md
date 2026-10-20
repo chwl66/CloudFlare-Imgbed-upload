@@ -2,11 +2,15 @@
 
 一个功能强大的浏览器扩展，支持多种方式上传图片到 CloudFlare ImgBed 图床，提供便捷的图片管理解决方案。
 
+> **两个版本**
+> - **浏览器扩展版**（当前目录，Manifest V3）：功能最完整，支持浏览器原生右键菜单
+> - **油猴脚本版**（[`userscript/`](./userscript/README.md)）：单文件，适配 Tampermonkey / Violentmonkey，适合不装扩展或使用 Firefox 的场景
+
 ## ✨ 核心特性
 
 ### 🖱️ 多种上传方式
 - **右键菜单上传**：在任意网页图片上右键，一键上传到图床
-- **剪贴板上传**：支持截图、复制图片后直接上传，快捷键 `Ctrl+Shift+U`
+- **剪贴板上传**：支持截图、复制图片后直接上传，默认快捷键 `Ctrl+Shift+U`（可在 `chrome://extensions/shortcuts` 自定义）
 - **拖拽上传**：将本地图片文件直接拖拽到网页即可上传
 - **跨域图片处理**：智能处理防盗链保护，多重fallback机制确保上传成功
 
@@ -33,10 +37,10 @@
 - **压缩优化**：Telegram渠道支持服务端图片压缩
 
 ### 🔒 安全与兼容性
-- **权限最小化**：仅请求必要的浏览器权限
+- **权限说明**：核心权限仅 `contextMenus` / `storage` / `activeTab` / `clipboardRead`；`host_permissions` 为 `*://*/*`，用于从任意网页读取右键选中的图片并绕过防盗链，这是右键上传功能的必要前提
 - **跨域支持**：智能处理各种网站的防盗链保护
 - **多浏览器支持**：兼容Edge、Chrome等Chromium内核浏览器
-- **隐私保护**：所有配置信息本地存储，不上传到第三方服务器
+- **隐私保护**：API Token 与认证码仅保存在浏览器本地（`chrome.storage.local`），不参与跨设备同步，也不会上传到第三方服务器；其余配置通过浏览器账号同步，仅存于你的浏览器账户中
 
 ## 📦 安装指南
 
@@ -45,8 +49,8 @@
 #### 步骤1：获取扩展文件
 ```bash
 # 方式1：Git克隆
-git clone https://github.com/your-repo/cloudflare-imgbed-uploader.git
-cd cloudflare-imgbed-uploader/image-up
+git clone https://github.com/chwl66/CloudFlare-Imgbed-upload.git
+cd CloudFlare-Imgbed-upload
 
 # 方式2：直接下载
 # 下载ZIP文件并解压到本地目录
@@ -64,7 +68,7 @@ cd cloudflare-imgbed-uploader/image-up
 
 3. **加载扩展**
    - 点击"加载已解压的扩展程序"按钮
-   - 选择下载的 `image-up` 文件夹
+   - 选择下载的 `CloudFlare-Imgbed-upload` 文件夹
    - 点击"选择文件夹"确认
 
 4. **验证安装**
@@ -77,7 +81,7 @@ cd cloudflare-imgbed-uploader/image-up
 #### 打包安装（适用于团队部署）
 ```bash
 # 1. 在扩展管理页面点击"打包扩展程序"
-# 2. 选择 image-up 文件夹
+# 2. 选择 CloudFlare-Imgbed-upload 文件夹
 # 3. 生成 .crx 和 .pem 文件
 # 4. 分发 .crx 文件给团队成员安装
 ```
@@ -100,8 +104,7 @@ cd cloudflare-imgbed-uploader/image-up
 1. **打开配置界面**
    ```
    方式1：点击浏览器工具栏的扩展图标 📷
-   方式2：右键网页 → "ImgBed 配置"
-   方式3：扩展管理页面 → 扩展详情 → 选项
+   方式2：扩展管理页面 → 扩展详情 → 选项
    ```
 
 2. **填写服务信息**
@@ -120,7 +123,7 @@ cd cloudflare-imgbed-uploader/image-up
 #### 高级配置（可选）
 ```yaml
 存储配置:
-  上传渠道: telegram | cfr2 | s3 | discord | huggingface | webdav | external
+  上传渠道: telegram | cfr2 | s3 | discord | huggingface | webdav
   渠道名称: "r2-main" # 可选，同一渠道配置多个存储时指定
   文件命名: default | index | origin | short
   上传目录: "img/uploads" # 可留空使用根目录
@@ -209,7 +212,8 @@ cd cloudflare-imgbed-uploader/image-up
 | `discord` | Discord |
 | `huggingface` | Hugging Face |
 | `webdav` | WebDAV |
-| `external` | 外链渠道 |
+
+> 以上取值与上游 `/upload` 接口的 `uploadChannel` 枚举完全一致（见 [官方上传 API 文档](https://cfbed.sanyue.de/api/upload.html)）。旧版本中的 `external` 选项在上游接口中并不存在，已移除，历史配置会自动回落到默认渠道。
 
 **渠道名称（`channelName`）** — 可选
 - 同一渠道配置了多个存储时，指定使用的渠道名称（对应服务端 `channelName` 参数）
@@ -246,6 +250,25 @@ cd cloudflare-imgbed-uploader/image-up
 
 > **配置版本**：`_version` 字段由扩展自动维护，用于配置迁移，无需手动修改。
 
+### 📦 文件大小限制与分块上传
+
+扩展按上游接口的限制校验文件大小，并对大文件自动启用分块上传（初始化 → 逐块上传 → 合并），无需手动干预。
+
+| 渠道 | 单文件上限 | 传输方式 |
+|------|-----------|----------|
+| `telegram` | 100MB | ≤8MB 单请求；>8MB 分块（16MB/块） |
+| `cfr2` | 100MB | ≤8MB 单请求；>8MB 分块（8MB/块） |
+| `s3` | 100MB | ≤8MB 单请求；>8MB 分块（8MB/块） |
+| `discord` | 100MB | ≤8MB 单请求；>8MB 分块（8MB/块） |
+| `webdav` | 100MB | 单请求（上游不支持 WebDAV 分块） |
+| `huggingface` | 20MB | 单请求；≥20MB 需走 HuggingFace 直传，扩展暂不支持 |
+
+说明：
+
+- 100MB 来自 Cloudflare Pages 的请求体限制；自建实例若另有反向代理限制，需按实际情况调整。
+- 分块上传过程中会显示「分块上传中 n/N」；中途失败会自动向服务端发送清理请求，避免残留临时分块。
+- Discord 免费账号附件上限 10MB、Nitro 25MB，超出时由服务端返回错误，扩展会原样提示。
+
 ## 📖 使用方法
 
 ### 1. 右键上传图片
@@ -256,7 +279,7 @@ cd cloudflare-imgbed-uploader/image-up
 ### 2. 上传剪贴板图片
 - 复制图片到剪贴板（截图、复制图片等）
 - 在网页任意位置右键，选择"上传剪贴板图片到 ImgBed"
-- 或使用快捷键 `Ctrl+Shift+U`
+- 或使用快捷键 `Ctrl+Shift+U`（可在 `chrome://extensions/shortcuts` 中修改）
 
 ### 3. 拖拽上传
 - 直接将图片文件从文件管理器拖拽到网页
@@ -264,7 +287,6 @@ cd cloudflare-imgbed-uploader/image-up
 
 ### 4. 查看配置
 - 点击扩展图标查看和修改配置
-- 右键菜单中也有"ImgBed 配置"选项
 
 ### 5. 查看上传记录
 - 点击配置界面底部的"上传记录"按钮，在独立弹窗中查看最近 200 条记录
@@ -376,6 +398,7 @@ chrome.storage.sync.get(null, console.log)
 | `activeTab` | 访问当前页面 | 必需 |
 | `clipboardRead` | 读取剪贴板图片 | 剪贴板上传必需 |
 | `notifications` | 显示上传结果 | 可选 |
+| `scripting` | 扩展更新后向已打开的标签页补注入内容脚本，免去手动刷新 |
 | `host_permissions` | 跨域下载图片 | 右键上传必需 |
 
 ### 📞 获取帮助
@@ -395,39 +418,13 @@ chrome.storage.sync.get(null, console.log)
 
 ## 📝 版本历史
 
-### v1.3.0 (最新) - 2025/10/10
-```diff
-+ 新增：批量上传、上传历史、图片压缩、自定义快捷键和暗色主题
-```
+完整记录见 [CHANGELOG.md](./CHANGELOG.md)。当前版本 **v1.8.1** 的主要变化：
 
-### v1.2.0 - 2024/01/15
-```diff
-+ 新增：智能防盗链绕过机制
-+ 新增：多重fallback上传策略
-+ 优化：通知框UI设计，支持多格式显示
-+ 优化：链接截断显示，悬停查看完整内容
-+ 修复：通知框自动关闭问题
-+ 修复：跨域图片上传失败问题
-+ 改进：错误提示更加友好和详细
-```
-
-### v1.1.0 - 2024/01/01
-```diff
-+ 新增：拖拽上传功能
-+ 新增：多种复制格式支持
-+ 新增：上传进度显示
-+ 优化：配置界面UI设计
-+ 修复：部分网站兼容性问题
-```
-
-### v1.0.0 - 2023/12/15
-```diff
-+ 初始版本发布
-+ 支持右键菜单上传
-+ 支持剪贴板上传
-+ 基础配置管理界面
-+ 多渠道存储支持
-```
+- 对齐上游官方 `/upload` 接口，移除不存在的 `external` 渠道
+- 新增大文件分块上传（`telegram` / `cfr2` / `s3` / `discord`）
+- 修复服务端 `publicUrl` 被域名重写、导致 CDN 链接失效的问题
+- 快捷键迁移到 `commands` API，支持在浏览器中自定义
+- 测试连接改为非破坏性探测，不再向图床写入测试文件
 
 ## 🚀 路线图
 
@@ -441,12 +438,20 @@ chrome.storage.sync.get(null, console.log)
 - [ ] 团队协作功能
 - [ ] API接口开放
 
+## 🧪 开发与测试
+
+本项目无需构建，直接在浏览器中「加载已解压的扩展程序」即可调试。仓库内置一个零依赖的冒烟测试，用 Node 启动模拟的上游 `/upload` 接口，覆盖参数拼装、分块上传链路、`publicUrl` 保留与上传记录写入：
+
+```bash
+node test/smoke.mjs   # 需要 Node 18+
+```
+
 ## 🤝 贡献指南
 
 ### 参与开发
 ```bash
 # 1. Fork项目
-git clone https://github.com/your-username/cloudflare-imgbed-uploader.git
+git clone https://github.com/chwl66/CloudFlare-Imgbed-upload.git
 
 # 2. 创建功能分支
 git checkout -b feature/new-feature
@@ -474,34 +479,17 @@ git push origin feature/new-feature
 
 ### 获取帮助
 - 📖 查看[详细文档](./install.md)
-- 🐛 [报告问题](https://github.com/your-repo/issues)
-- 💡 [功能建议](https://github.com/your-repo/issues/new?template=feature_request.md)
-- 📧 邮件支持：support@your-domain.com
+- 🐛 [报告问题](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues)
+- 💡 [功能建议](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues/new)
+- 📚 服务端问题请查阅上游 [CloudFlare ImgBed 文档](https://cfbed.sanyue.de)
 
-### 社区交流
-- 💬 QQ群：123456789
-- 📱 微信群：扫码加入
-- 🌐 官方网站：https://your-website.com
+### 相关项目
+- 服务端本体：[MarSeventh/CloudFlare-ImgBed](https://github.com/MarSeventh/CloudFlare-ImgBed)
+- Web 前端：[MarSeventh/Sanyue-ImgHub](https://github.com/MarSeventh/Sanyue-ImgHub)
 
 ## 📄 许可证
 
-本项目基于 [MIT License](LICENSE) 开源协议发布。
-
-```
-MIT License
-
-Copyright (c) 2025 CloudFlare ImgBed Uploader
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
+本项目基于 [MIT License](./LICENSE) 开源协议发布。
 
 ---
 

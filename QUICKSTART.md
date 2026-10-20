@@ -5,7 +5,7 @@
 ### 1️⃣ 下载扩展
 ```bash
 # 下载并解压到本地目录
-git clone https://github.com/your-repo/cloudflare-imgbed-uploader.git
+git clone https://github.com/chwl66/CloudFlare-Imgbed-upload.git
 # 或直接下载ZIP文件解压
 ```
 
@@ -14,7 +14,7 @@ git clone https://github.com/your-repo/cloudflare-imgbed-uploader.git
 1. 打开浏览器扩展页面：edge://extensions/
 2. 开启"开发者模式"
 3. 点击"加载已解压的扩展程序"
-4. 选择 image-up 文件夹
+4. 选择 CloudFlare-Imgbed-upload 文件夹
 ```
 
 ### 3️⃣ 配置服务
@@ -78,7 +78,7 @@ git clone https://github.com/your-repo/cloudflare-imgbed-uploader.git
 
 - 📖 [完整文档](README.md)
 - 🔧 [详细安装指南](install.md)
-- 🐛 [报告问题](https://github.com/your-repo/issues)
+- 🐛 [报告问题](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues)
 
 ---
 

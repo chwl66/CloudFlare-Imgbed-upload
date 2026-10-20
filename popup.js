@@ -109,7 +109,7 @@ async function saveFormConfig() {
   }
 }
 
-// 测试连接（改进版本）
+// 测试连接（非破坏性：不会向图床写入测试文件）
 async function testConnection() {
   const apiUrlInput = document.getElementById('apiUrl').value.trim();
   const authCodeInput = document.getElementById('authCode').value.trim();
@@ -136,91 +136,117 @@ async function testConnection() {
     showStatus('正在测试连接...', 'info');
     hideUploadProgress();
 
-    // 首先尝试简单的健康检查
-    const healthCheckUrl = `${apiUrl.replace(/\/$/, '')}/health`;
-    const healthHeaders = {};
-    if (apiToken) {
-      healthHeaders['Authorization'] = `Bearer ${apiToken}`;
-    } else if (authCode) {
-      healthHeaders['authCode'] = authCode;
-    }
-    try {
-      const healthResponse = await fetchWithTimeout(healthCheckUrl, {
-        method: 'HEAD',
-        headers: healthHeaders
-      }, CONSTANTS.TEST_TIMEOUT);
+    // 优先用 /api/channels：既能验证认证，又能拿到渠道名称候选
+    const channelResult = await fetchChannelList(apiUrl, apiToken, authCode);
 
-      if (healthResponse.ok) {
-        showStatus('连接测试成功！', 'success');
-        return;
-      }
-    } catch (healthError) {
-      console.log('健康检查失败，尝试上传测试:', healthError.message);
+    if (channelResult.ok) {
+      fillChannelOptions(channelResult.channels);
+      const count = channelResult.channels.length;
+      showStatus(count > 0 ? `连接成功，该实例提供 ${count} 个渠道` : '连接测试成功！', 'success');
+      return;
     }
 
-    // 如果健康检查失败，进行上传测试
-    await performUploadTest(apiUrl, authCode, apiToken);
+    if (channelResult.status === 401 || channelResult.status === 403) {
+      showStatus(`连接失败: ${getFriendlyErrorMessage(null, channelResult.status)}`, 'error');
+      return;
+    }
 
+    // 实例未提供 /api/channels 时退回根路径探测，不写入任何数据
+    const reachable = await probeApiReachable(apiUrl);
+    if (reachable) {
+      showStatus('地址可达，但该实例未提供渠道接口，未能验证上传权限', 'info');
+    } else {
+      showStatus('连接失败：无法访问该地址，请检查地址与网络', 'error');
+    }
   } catch (error) {
     const friendlyMessage = getFriendlyErrorMessage(error);
     showStatus(`连接测试失败: ${friendlyMessage}`, 'error');
   }
 }
 
-// 执行上传测试
-async function performUploadTest(apiUrl, authCode, apiToken) {
-  // 创建一个测试用的小图片 (1x1 像素的透明 PNG)
-  const testImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-  
-  const response = await fetch(testImageData);
-  const blob = await response.blob();
-  
-  const formData = new FormData();
-  formData.append('file', blob, 'test.png');
-  
-  const uploadChannel = document.getElementById('uploadChannel').value;
-  const uploadNameType = document.getElementById('uploadNameType').value;
-  // 优先使用当前下拉框选择的返回格式，未选择时回退到已保存配置
-  const returnFormat = document.getElementById('returnFormat')?.value
-    || originalConfig?.returnFormat
-    || DEFAULT_CONFIG.returnFormat;
-  const params = new URLSearchParams({
-    uploadChannel,
-    uploadNameType,
-    returnFormat
-  });
-  
-  // 只有当认证码不为空时才添加
-  if (authCode) {
-    params.append('authCode', authCode);
-  }
-  
-  const uploadUrl = `${apiUrl.replace(/\/$/, '')}/upload?${params.toString()}`;
-  
-  // API Token 通过 Authorization 请求头传递
+/**
+ * 获取实例可用渠道列表
+ * @returns {Promise<{ok: boolean, status?: number, channels?: string[]}>}
+ */
+async function fetchChannelList(apiUrl, apiToken, authCode) {
+  const baseUrl = apiUrl.replace(/\/$/, '');
+  const query = authCode ? `?authCode=${encodeURIComponent(authCode)}` : '';
   const headers = {};
+
   if (apiToken) {
     headers['Authorization'] = `Bearer ${apiToken}`;
   }
-  
-  // 使用带超时的 fetch
-  const uploadResponse = await fetchWithTimeout(uploadUrl, {
-    method: 'POST',
-    headers,
-    body: formData
-  }, CONSTANTS.TEST_TIMEOUT);
-  
-  if (uploadResponse.ok) {
-    const result = await uploadResponse.json();
-    if (result && result.length > 0 && result[0].src) {
-      showStatus('连接测试成功！', 'success');
-    } else {
-      showStatus('连接成功，但返回格式异常', 'error');
+
+  try {
+    const response = await fetchWithTimeout(
+      `${baseUrl}/api/channels${query}`,
+      { method: 'GET', headers },
+      CONSTANTS.TEST_TIMEOUT
+    );
+
+    if (!response.ok) {
+      return { ok: false, status: response.status };
     }
-  } else {
-    const friendlyMessage = getFriendlyErrorMessage(null, uploadResponse.status);
-    showStatus(`连接失败: ${friendlyMessage}`, 'error');
+
+    const data = await response.json();
+    return { ok: true, channels: extractChannelNames(data) };
+  } catch (error) {
+    return { ok: false, status: 0 };
   }
+}
+
+/**
+ * 从 /api/channels 响应中提取渠道名称（兼容多种返回结构）
+ * @param {any} data
+ * @returns {string[]}
+ */
+function extractChannelNames(data) {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.channels)
+      ? data.channels
+      : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+  const names = list.map(item => {
+    if (typeof item === 'string') return item;
+    if (!item || typeof item !== 'object') return '';
+    return item.channelName || item.name || item.id || '';
+  }).filter(name => typeof name === 'string' && name.trim());
+
+  return Array.from(new Set(names));
+}
+
+/**
+ * 探测服务地址是否可达（只发 HEAD，不写入数据）
+ */
+async function probeApiReachable(apiUrl) {
+  try {
+    const response = await fetchWithTimeout(
+      `${apiUrl.replace(/\/$/, '')}/`,
+      { method: 'HEAD' },
+      CONSTANTS.TEST_TIMEOUT
+    );
+    return response.ok || response.status < 500;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * 填充渠道名称候选
+ */
+function fillChannelOptions(names) {
+  const datalist = document.getElementById('channelOptions');
+  if (!datalist) return;
+
+  datalist.innerHTML = '';
+  names.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    datalist.appendChild(option);
+  });
 }
 
 // 打开上传记录弹窗（已打开时聚焦已有窗口）
@@ -290,21 +316,6 @@ function hideUploadProgress() {
   const progressElement = document.getElementById('uploadProgress');
   if (progressElement) {
     progressElement.style.display = 'none';
-  }
-}
-
-// 显示上传进度
-function showUploadProgress(text, percent = 0) {
-  const progressElement = document.getElementById('uploadProgress');
-  const progressText = document.getElementById('progressText');
-  const progressPercent = document.getElementById('progressPercent');
-  const progressFill = document.getElementById('progressFill');
-  
-  if (progressElement) {
-    progressElement.style.display = 'block';
-    if (progressText) progressText.textContent = text;
-    if (progressPercent) progressPercent.textContent = `${percent}%`;
-    if (progressFill) progressFill.style.width = `${percent}%`;
   }
 }
 

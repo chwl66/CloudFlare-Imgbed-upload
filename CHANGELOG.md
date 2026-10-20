@@ -1,5 +1,76 @@
 # 📝 更新日志
 
+## [userscript v1.1.0] - 2026-10-20
+
+### 🐛 问题修复
+- **网页图片右键无法上传**：v1.0.0 把「接管图片右键菜单」默认设为关闭，安装后右键图片只会弹出浏览器原生菜单，看起来像「只能上传剪贴板图片」。现在默认开启，并新增配置迁移：已安装用户的旧配置会一次性迁移为开启
+- **右键识别不到图片**：很多站点会在 `<img>` 上盖一层透明 `<div>` 或 `<a>` 作为点击热区，`event.target` 根本不是图片。现在依次尝试事件路径（可穿透 Shadow DOM）→ 祖先 `<img>` → 按坐标取该点元素，能识别被覆盖的图片；同时支持 `background-image` 背景图与 `data-src` 等懒加载属性
+- **右键事件被站点抢先拦截**：`contextmenu` 监听从 `document` 上移到 `window` 捕获阶段，先于站点自己的处理执行
+- **悬停按钮在覆盖层站点失效**：`mouseover` 只做轻量识别，另加节流的 `mousemove` 坐标探测兜底，透明层盖住的图片也能出现按钮
+- **小图不显示按钮**：悬停按钮的尺寸门槛从 80px 降到 40px，缩略图也能用
+
+### 🔧 优化
+- 右键菜单顶部显示图片所在域名，避免误传；菜单位置按实际高度收边，不再超出视口
+- 按住 `Alt` 右键可跳过接管，保留浏览器原生「图片另存为」等菜单
+- 图片 URL 提取增加 `currentSrc` 与 `data-src` / `data-original` / `data-actualsrc` / `data-lazy-src` 兜底，协议相对地址自动补 `https:`
+
+### 🧪 测试
+- 新增右键上传专项 jsdom 测试 20 项：默认配置右键、覆盖层、背景图、非图片区域不接管、`Alt` 放行、旧配置迁移、悬停按钮阈值，全部通过
+- 原全流程回归 25 项同步通过
+
+---
+
+## [userscript v1.0.0] - 2026-10-20
+
+### ✨ 新增
+- 新增油猴脚本版 `userscript/cloudflare-imgbed-uploader.user.js`，功能与扩展版对齐：图片上传、剪贴板上传、拖拽上传、分块上传、三种复制格式、上传记录、设置面板与深色模式
+- 跨域请求改用 `GM_xmlhttpRequest`，不受 CORS 与防盗链 Referer 限制；配置与记录存于 `GM_setValue`
+- 由于油猴无法注册浏览器右键菜单，改为「图片悬停按钮 + 可选接管图片右键菜单」两种入口；剪贴板读取被拒时自动降级为「按 Ctrl+V 粘贴」
+- 使用说明与版本差异见 [`userscript/README.md`](./userscript/README.md)
+
+---
+
+## [v1.8.1] - 2026-10-20
+
+### 🐛 问题修复
+- **右键上传剪贴板图片失败**：右键菜单关闭后页面可能尚未重新获得焦点，`navigator.clipboard.read()` 会抛 `NotAllowedError`。现在先检查焦点并 `window.focus()`，失败按 80/160/240ms 重试，最多 3 次
+- **扩展更新后旧标签页无法上传**：新增内容脚本探测（`ping`），未响应时通过 `chrome.scripting` 补注入 `utils.js` / `notification.js` / `content.js` 与通知样式，无需手动刷新页面；注入失败时提示「请刷新页面后重试」而不是抛出原始错误
+
+### 🔧 优化
+- 剪贴板失败提示按错误类型区分：不支持（非 HTTPS）、无图片数据、权限被拒、站点权限策略禁止，并附上可行的替代方案
+- 控制台新增 `[ImgBed]` 前缀日志，记录焦点状态、安全上下文、图片类型与大小，便于定位问题
+
+---
+
+## [v1.8.0] - 2026-10-20
+
+### ✨ 新增功能
+- **分块上传**：按上游官方流程（初始化 → 逐块上传 → 合并）实现大文件上传，`telegram` / `cfr2` / `s3` / `discord` 渠道超过 8MB 自动分块，分块大小分别为 16MB / 8MB / 8MB / 8MB
+- **失败清理**：分块上传中断时自动调用 `?cleanup=true` 释放服务端临时数据
+- **渠道候选**：测试连接时读取 `/api/channels`，把可用渠道名填入「渠道名称」候选列表
+- **快捷键可自定义**：剪贴板上传快捷键迁移到 `commands` API，可在 `chrome://extensions/shortcuts` 中修改
+
+### 🐛 问题修复
+- **publicUrl 被覆盖**：`normalizeImageUrl` 不再把服务端返回的绝对地址改写为站点域名，修复 CDN 加速链接（默认 URL 前缀）失效的问题
+- **超时不一致**：内容脚本的消息超时改为跟随配置的「上传超时」，修复前端 60 秒即报超时、后台仍在传输的问题
+- **全站拖拽拦截**：`dragover` 只在拖拽文件时阻止默认行为，不再影响站点自身的拖拽交互
+- **测试连接污染图床**：改为 `/api/channels` + 根路径 HEAD 探测，不再上传 1x1 测试图
+
+### 🔧 调整
+- 移除上游接口中不存在的 `external` 上传渠道，历史配置自动回落默认渠道（配置版本升至 1.4.0）
+- 文件大小上限由固定 10MB 改为按渠道区分：支持分块的渠道 100MB，`huggingface` 20MB，`webdav` 100MB
+- 删除无对应菜单项的 `open-config` 分支、未被调用的 `showUploadProgress`、未使用的 `SHORTCUT_KEYS`
+
+### 📝 文档
+- 新增「文件大小限制与分块上传」章节，标注各渠道上限与传输方式
+- 版本历史改为指向 CHANGELOG，删除与代码不符的条目
+- 补充 LICENSE 文件（MIT），修正 README 中的占位链接与社区信息
+
+### 🧪 测试
+- 新增 `test/smoke.mjs` 零依赖冒烟测试：模拟上游 `/upload` 接口，覆盖单请求参数拼装、分块上传全链路、`publicUrl` 保留、上传记录写入与清理请求
+
+---
+
 ## [v1.7.1] - 2026-09-10
 
 ### 🎨 界面优化
@@ -57,11 +128,8 @@
 ## [v1.3.0] - 2025-10-10
 
 ### ✨ 新增功能
-- **批量上传**：支持一次性选择多个文件进行上传
-- **上传历史**：可在扩展中查看最近的上传记录
-- **图片压缩**：提供客户端图片压缩选项，节省带宽
-- **自定义快捷键**：允许用户自定义上传快捷键
-- **暗色主题**：新增暗色模式，适应不同用户偏好
+- **多文件拖拽**：一次拖入多个图片时依次上传
+- **暗色主题**：配置弹窗与上传记录页跟随系统深色模式
 
 ---
 
@@ -135,7 +203,7 @@
 
 ## 🚀 开发计划
 
-### v1.4.0 (规划中)
+### 下一版本（规划中）
 - [ ] 多语言界面
 - [ ] 云端配置同步
 - [ ] 图片编辑功能
@@ -162,18 +230,13 @@
 
 ## 🤝 贡献者
 
-感谢所有为项目做出贡献的开发者：
-
-- [@developer1](https://github.com/developer1) - 核心功能开发
-- [@designer1](https://github.com/designer1) - UI/UX设计
-- [@tester1](https://github.com/tester1) - 测试和反馈
+感谢所有为项目做出贡献的开发者，名单见 [GitHub Contributors](https://github.com/chwl66/CloudFlare-Imgbed-upload/graphs/contributors)。
 
 ## 📞 反馈渠道
 
-- 🐛 [Bug报告](https://github.com/your-repo/issues/new?template=bug_report.md)
-- 💡 [功能建议](https://github.com/your-repo/issues/new?template=feature_request.md)
-- 📧 邮件：support@your-domain.com
-- 💬 QQ群：123456789
+- 🐛 [Bug 报告](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues)
+- 💡 [功能建议](https://github.com/chwl66/CloudFlare-Imgbed-upload/issues/new)
+- 📚 服务端相关问题请查阅 [CloudFlare ImgBed 文档](https://cfbed.sanyue.de)
 
 ---
 

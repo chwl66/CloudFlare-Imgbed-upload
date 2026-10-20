@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       switch (request.action) {
         case 'uploadImage':
-          await handleImageUpload(request.imageUrl);
+          messageResult = await handleImageUpload(request.imageUrl);
           break;
 
         case 'uploadClipboard':
@@ -19,6 +19,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'copyText':
           await copyToClipboard(request.text);
+          break;
+
+        case 'ping':
+          // 供背景脚本检测内容脚本是否已注入
+          messageResult = { pong: true };
           break;
       }
 
@@ -34,7 +39,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 通用的消息发送函数，使用 Promise 包装
 function sendMessageToBackground(message, options = {}) {
-  const isUploadAction = message && (message.action === 'uploadFile' || message.action === 'uploadImageUrl');
+  const uploadActions = ['uploadFile', 'uploadImageUrl', 'chunkedUploadInit', 'chunkedUploadChunk', 'chunkedUploadMerge'];
+  const isUploadAction = message && uploadActions.includes(message.action);
   const defaultTimeoutMs = isUploadAction
     ? (typeof CONSTANTS !== 'undefined' ? CONSTANTS.UPLOAD_TIMEOUT : 60000)
     : (typeof CONSTANTS !== 'undefined' ? CONSTANTS.CONNECTION_TIMEOUT : 15000);
@@ -67,10 +73,177 @@ function sendMessageToBackground(message, options = {}) {
   });
 }
 
+// ==================== 统一上传调度 ====================
+
+/**
+ * 获取本次上传的执行计划（渠道、单文件上限、分块参数、超时）
+ * @returns {Promise<Object>}
+ */
+async function getUploadPlan() {
+  const fallback = {
+    channel: 'telegram',
+    limit: CONSTANTS.MAX_FILE_SIZE,
+    chunkSize: CONSTANTS.CHUNKED_UPLOAD_THRESHOLD,
+    supportsChunked: false,
+    chunkedThreshold: CONSTANTS.CHUNKED_UPLOAD_THRESHOLD,
+    timeout: CONSTANTS.UPLOAD_TIMEOUT
+  };
+
+  const response = await sendMessageToBackground(
+    { action: 'getUploadPlan' },
+    { timeoutMs: CONSTANTS.CONNECTION_TIMEOUT }
+  );
+
+  if (response && response.success && response.plan) {
+    return { ...fallback, ...response.plan };
+  }
+
+  return fallback;
+}
+
+/**
+ * Blob 转 dataURL
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 统一上传入口：按渠道上限与文件大小自动选择单请求或分块上传
+ * @param {Blob} blob - 图片数据
+ * @param {string} fileName - 文件名
+ * @param {string} source - 上传来源（右键图片 / 剪贴板 / 拖拽）
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function uploadBlob(blob, fileName, source) {
+  const plan = await getUploadPlan();
+
+  if (blob.size > plan.limit) {
+    const error = `文件大小 ${formatFileSize(blob.size)} 超过 ${plan.channel} 渠道上限 ${formatFileSize(plan.limit)}`;
+    showUploadResult({ error }, 'error');
+    console.error('[ImgBed]', error);
+    return { success: false, error };
+  }
+
+  const useChunked = plan.supportsChunked && blob.size > plan.chunkedThreshold;
+
+  try {
+    const result = useChunked
+      ? await uploadBlobChunked(blob, fileName, source, plan)
+      : await uploadBlobSingle(blob, fileName, source, plan);
+
+    showUploadResult(result, 'success');
+    console.log('[ImgBed] 上传成功:', result);
+    return { success: true };
+  } catch (error) {
+    const message = error?.message || '上传失败';
+    showUploadResult({ error: message }, 'error');
+    console.error('[ImgBed] 上传失败:', message);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * 单请求上传（小文件）
+ */
+async function uploadBlobSingle(blob, fileName, source, plan) {
+  const fileData = await blobToDataUrl(blob);
+
+  const response = await sendMessageToBackground({
+    action: 'uploadFile',
+    fileData,
+    fileName,
+    source
+  }, { timeoutMs: plan.timeout + 5000 });
+
+  if (!response || !response.success) {
+    throw new Error(response?.error || '上传失败');
+  }
+
+  return response.result;
+}
+
+/**
+ * 分块上传（大文件，对应上游 init → chunk → merge 流程）
+ */
+async function uploadBlobChunked(blob, fileName, source, plan) {
+  const fileType = blob.type || 'application/octet-stream';
+  const chunkSize = Math.max(1024 * 1024, plan.chunkSize);
+  const totalChunks = Math.ceil(blob.size / chunkSize);
+
+  const initResponse = await sendMessageToBackground({
+    action: 'chunkedUploadInit',
+    fileName,
+    fileType,
+    totalChunks
+  }, { timeoutMs: plan.timeout + 5000 });
+
+  if (!initResponse || !initResponse.success || !initResponse.uploadId) {
+    throw new Error(initResponse?.error || '初始化分块上传失败');
+  }
+
+  const uploadId = initResponse.uploadId;
+
+  try {
+    for (let index = 0; index < totalChunks; index += 1) {
+      const start = index * chunkSize;
+      const chunk = blob.slice(start, Math.min(start + chunkSize, blob.size));
+      const chunkData = await blobToDataUrl(chunk);
+
+      showUploadingStatus(`分块上传中 ${index + 1}/${totalChunks}...`);
+
+      const chunkResponse = await sendMessageToBackground({
+        action: 'chunkedUploadChunk',
+        uploadId,
+        chunkIndex: index,
+        totalChunks,
+        fileName,
+        fileType,
+        chunkData
+      }, { timeoutMs: plan.timeout + 5000 });
+
+      if (!chunkResponse || !chunkResponse.success) {
+        throw new Error(chunkResponse?.error || `分块 ${index + 1}/${totalChunks} 上传失败`);
+      }
+    }
+
+    showUploadingStatus('正在合并分块...');
+
+    const mergeResponse = await sendMessageToBackground({
+      action: 'chunkedUploadMerge',
+      uploadId,
+      totalChunks,
+      fileName,
+      fileType,
+      source
+    }, { timeoutMs: plan.timeout * 2 + 5000 });
+
+    if (!mergeResponse || !mergeResponse.success) {
+      throw new Error(mergeResponse?.error || '合并分块失败');
+    }
+
+    return mergeResponse.result;
+  } catch (error) {
+    // 失败时释放服务端临时分块，避免残留数据
+    sendMessageToBackground({
+      action: 'chunkedUploadAbort',
+      uploadId,
+      totalChunks
+    }, { timeoutMs: CONSTANTS.CONNECTION_TIMEOUT });
+    throw error;
+  }
+}
+
 // 处理图片上传
 async function handleImageUpload(imageUrl) {
   let response = null;
-  let reader = null;
 
   showUploadingStatus('图片上传中...');
 
@@ -139,53 +312,17 @@ async function handleImageUpload(imageUrl) {
       }
     }
 
-    // 转换为 base64
-    reader = new FileReader();
-    reader.onload = async function() {
-      try {
-        // 使用 Promise 包装的消息发送
-        const uploadResponse = await sendMessageToBackground({
-          action: 'uploadFile',
-          fileData: reader.result,
-          fileName: fileName,
-          source: CONSTANTS.UPLOAD_SOURCES.IMAGE
-        });
-
-        console.log('收到响应:', uploadResponse);
-
-        if (uploadResponse.success) {
-          // 显示成功结果
-          showUploadResult(uploadResponse.result, 'success');
-          console.log('上传成功:', uploadResponse.result);
-        } else {
-          showUploadResult({ error: uploadResponse.error }, 'error');
-          console.error('上传失败:', uploadResponse.error);
-        }
-      } finally {
-        // 清理 FileReader
-        reader = null;
-      }
-    };
-
-    reader.onerror = function() {
-      showUploadResult({ error: '文件读取失败' }, 'error');
-      console.error('FileReader 读取失败');
-      reader = null;
-    };
-
-    reader.readAsDataURL(blob);
+    // 统一走单请求 / 分块上传调度
+    return await uploadBlob(blob, fileName, CONSTANTS.UPLOAD_SOURCES.IMAGE);
 
   } catch (error) {
     showUploadResult({ error: error.message }, 'error');
     console.error('上传错误:', error);
+    return { success: false, error: error.message };
   } finally {
-    // 清理资源
-    if (response && response.body) {
-      try {
-        response.body.cancel();
-      } catch (e) {
-        // 忽略清理错误
-      }
+    // 清理资源：body 已被消费时 cancel() 会抛错，需先判断 bodyUsed 并吞掉 Promise 拒绝
+    if (response && response.body && !response.bodyUsed) {
+      response.body.cancel().catch(() => {});
     }
   }
 }
@@ -236,85 +373,108 @@ function convertImageToBlob(imageUrl) {
   });
 }
 
-// 处理剪贴板上传
-async function handleClipboardUpload() {
-  let reader = null;
+// ==================== 剪贴板读取 ====================
 
-  showUploadingStatus('剪贴板图片上传中...');
+/**
+ * 读取剪贴板条目
+ * 右键菜单关闭后页面可能尚未重新获得焦点，此处做焦点重试，避免 NotAllowedError
+ * @returns {Promise<Array<ClipboardItem>>}
+ */
+async function readClipboardItems() {
+  if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') {
+    const error = new Error('当前页面无法读取剪贴板（浏览器仅允许在 HTTPS 页面读取），请改用拖拽或右键图片上传');
+    error.name = 'UnsupportedError';
+    throw error;
+  }
 
-  try {
-    const clipboardItems = await navigator.clipboard.read();
+  const maxAttempts = 3;
+  let lastError = null;
 
-    for (const item of clipboardItems) {
-      const imageType = item.types.find(type => type.startsWith('image/'));
-
-      if (imageType) {
-        const blob = await item.getType(imageType);
-
-        // 验证图片文件
-        await validateImageFile(blob);
-
-        const fileName = `clipboard-image.${imageType.split('/')[1]}`;
-        const fileData = await new Promise((resolve, reject) => {
-          const localReader = new FileReader();
-          reader = localReader;
-          localReader.onload = () => resolve(localReader.result);
-          localReader.onerror = () => reject(new Error('剪贴板文件读取失败'));
-          localReader.readAsDataURL(blob);
-        });
-
-        console.log('正在上传剪贴板图片...');
-
-        // 使用 Promise 包装的消息发送
-        const uploadResponse = await sendMessageToBackground({
-          action: 'uploadFile',
-          fileData,
-          fileName,
-          source: CONSTANTS.UPLOAD_SOURCES.CLIPBOARD
-        });
-
-        console.log('收到响应:', uploadResponse);
-
-        if (uploadResponse.success) {
-          // 显示成功结果
-          showUploadResult(uploadResponse.result, 'success');
-          console.log('上传成功:', uploadResponse.result);
-          return { success: true };
-        }
-
-        const errorMessage = uploadResponse.error || '上传失败';
-        showUploadResult({ error: errorMessage }, 'error');
-        console.error('上传失败:', errorMessage);
-        return { success: false, error: errorMessage };
-      }
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (!document.hasFocus()) {
+      window.focus();
+      await sleep(80 * attempt);
     }
 
-    console.log('剪贴板中没有图片');
+    try {
+      return await navigator.clipboard.read();
+    } catch (error) {
+      lastError = error;
+      const retryable = error.name === 'NotAllowedError' || error.name === 'InvalidStateError';
+      if (!retryable || attempt === maxAttempts) break;
+
+      console.warn(`[ImgBed] 剪贴板读取失败（第 ${attempt} 次），准备重试:`, error.name, error.message);
+      await sleep(120 * attempt);
+    }
+  }
+
+  throw lastError || new Error('剪贴板读取失败');
+}
+
+/**
+ * 把剪贴板异常翻译成用户可理解的提示
+ * @param {Error} error
+ * @returns {string}
+ */
+function describeClipboardError(error) {
+  const name = error?.name || '';
+
+  if (name === 'UnsupportedError') return error.message;
+  if (name === 'NotFoundError' || name === 'DataError') return '剪贴板中没有图片数据';
+  if (name === 'NotAllowedError') {
+    return '剪贴板读取被拒绝：请确认页面处于激活状态；若该站点曾拒绝剪贴板权限，请在地址栏的权限设置中重新允许，或改用拖拽上传';
+  }
+  if (name === 'SecurityError') {
+    return '当前页面的权限策略禁止读取剪贴板，请改用拖拽上传';
+  }
+
+  return error?.message || '剪贴板访问失败，请重试';
+}
+
+// 处理剪贴板上传
+async function handleClipboardUpload() {
+  showUploadingStatus('剪贴板图片上传中...');
+  console.log('[ImgBed] 开始读取剪贴板', {
+    focused: document.hasFocus(),
+    secureContext: window.isSecureContext
+  });
+
+  let clipboardItems;
+  try {
+    clipboardItems = await readClipboardItems();
+  } catch (error) {
+    console.error('[ImgBed] 剪贴板读取失败:', error.name, error.message);
+    const errorMessage = describeClipboardError(error);
+    showUploadResult({ error: errorMessage }, 'error');
+    return { success: false, error: errorMessage };
+  }
+
+  const imageEntry = clipboardItems
+    .map(item => ({ item, type: item.types.find(t => t.startsWith('image/')) }))
+    .find(entry => entry.type);
+
+  if (!imageEntry) {
+    console.log('[ImgBed] 剪贴板中没有图片');
     const noImageError = '剪贴板中没有图片数据';
     showUploadResult({ error: noImageError }, 'error');
     return { success: false, error: noImageError };
+  }
 
+  try {
+    const blob = await imageEntry.item.getType(imageEntry.type);
+
+    // 验证图片文件
+    await validateImageFile(blob);
+
+    const fileName = `clipboard-image.${imageEntry.type.split('/')[1]}`;
+    console.log('[ImgBed] 正在上传剪贴板图片...', { type: imageEntry.type, size: blob.size });
+
+    return await uploadBlob(blob, fileName, CONSTANTS.UPLOAD_SOURCES.CLIPBOARD);
   } catch (error) {
-    console.log('无法访问剪贴板');
-    console.error('剪贴板访问错误:', error);
-
-    // 提供用户友好的错误提示
-    let errorMessage;
-    if (error.name === 'NotAllowedError') {
-      errorMessage = '剪贴板访问被拒绝，请检查浏览器权限设置';
-    } else if (error.name === 'NotFoundError') {
-      errorMessage = '剪贴板中没有图片数据';
-    } else {
-      errorMessage = error.message || '剪贴板访问失败，请重试';
-    }
-
+    console.error('[ImgBed] 剪贴板图片处理失败:', error);
+    const errorMessage = error?.message || '剪贴板图片读取失败';
     showUploadResult({ error: errorMessage }, 'error');
     return { success: false, error: errorMessage };
-  } finally {
-    // 清理资源
-    if (reader) {
-      reader = null;
-    }
   }
 }
 
@@ -334,81 +494,42 @@ async function copyToClipboard(text) {
 
 // 拖拽上传功能（使用事件管理器）
 function initializeDragAndDrop() {
+  // 仅当拖拽的是文件时才接管默认行为，避免影响站点自身的拖拽交互（编辑器、网盘上传区等）
   EventManager.add(document, 'dragover', function(e) {
-    e.preventDefault();
+    const types = e.dataTransfer && e.dataTransfer.types;
+    if (types && Array.from(types).includes('Files')) {
+      e.preventDefault();
+    }
   });
-  
+
   EventManager.add(document, 'drop', async function(e) {
-    e.preventDefault();
-    
-    const files = Array.from(e.dataTransfer.files);
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
-    if (imageFiles.length > 0) {
-      for (const file of imageFiles) {
-        try {
-          // 验证图片文件
-          await validateImageFile(file);
-          
-          const reader = new FileReader();
-          reader.onload = async function() {
-            try {
-              console.log('正在上传拖拽的图片...');
-              
-              // 使用 Promise 包装的消息发送
-              const uploadResponse = await sendMessageToBackground({
-                action: 'uploadFile',
-                fileData: reader.result,
-                fileName: file.name,
-                source: CONSTANTS.UPLOAD_SOURCES.DRAG
-              });
-              
-              console.log('收到响应:', uploadResponse);
-              
-              if (uploadResponse.success) {
-                // 显示成功结果
-                showUploadResult(uploadResponse.result, 'success');
-                console.log('上传成功:', uploadResponse.result);
-              } else {
-                showUploadResult({ error: uploadResponse.error }, 'error');
-                console.error('上传失败:', uploadResponse.error);
-              }
-            } finally {
-              // 清理 FileReader
-              reader = null;
-            }
-          };
-          
-          reader.onerror = function() {
-            showUploadResult({ error: '拖拽文件读取失败' }, 'error');
-            console.error('FileReader 读取失败');
-            reader = null;
-          };
-          
-          reader.readAsDataURL(file);
-        } catch (error) {
-          showUploadResult({ error: error.message }, 'error');
-          console.error('文件验证失败:', error);
-        }
+
+    if (imageFiles.length === 0) return;
+
+    e.preventDefault();
+
+    // 逐个上传，避免多文件并发时通知互相覆盖
+    for (const file of imageFiles) {
+      try {
+        await validateImageFile(file);
+        console.log('正在上传拖拽的图片...', file.name);
+        await uploadBlob(file, file.name, CONSTANTS.UPLOAD_SOURCES.DRAG);
+      } catch (error) {
+        showUploadResult({ error: error.message }, 'error');
+        console.error('文件验证失败:', error);
       }
     }
   });
 }
 
-// 键盘快捷键 (Ctrl+Shift+U 上传剪贴板图片)
-function initializeKeyboardShortcuts() {
-  EventManager.add(document, 'keydown', function(e) {
-    if (e.ctrlKey && e.shiftKey && e.key === 'U') {
-      e.preventDefault();
-      handleClipboardUpload();
-    }
-  });
-}
+// 快捷键由 manifest 的 commands 提供（默认 Ctrl+Shift+U），
+// 用户可在 chrome://extensions/shortcuts 中自定义，背景脚本转发到当前标签页
 
 // 初始化事件监听器
 function initializeEventListeners() {
   initializeDragAndDrop();
-  initializeKeyboardShortcuts();
 }
 
 // 页面加载完成后初始化
