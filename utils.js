@@ -56,8 +56,11 @@ const CONSTANTS = {
     'image/ico': [0x00, 0x00, 0x01, 0x00]
   },
   
-  // 有效配置值（与上游官方 /upload 接口的 uploadChannel 枚举保持一致，不含 external）
+  // 有效配置值（与上游官方 /upload 接口的 uploadChannel 枚举保持一致）
+  // external 是上游的「外链渠道」：表单提交 url 而不是文件，只收录链接不落存储，
+  // 因此不出现在文件上传的渠道下拉中，仅用于「外链收录」入口
   VALID_UPLOAD_CHANNELS: ['telegram', 'cfr2', 's3', 'discord', 'huggingface', 'webdav'],
+  EXTERNAL_CHANNEL: 'external',
   VALID_NAME_TYPES: ['default', 'index', 'origin', 'short'],
   VALID_RETURN_FORMATS: ['default', 'full'],
 
@@ -66,6 +69,7 @@ const CONSTANTS = {
     IMAGE: 'image',
     CLIPBOARD: 'clipboard',
     DRAG: 'drag',
+    EXTERNAL: 'external',
     UNKNOWN: 'unknown'
   },
 

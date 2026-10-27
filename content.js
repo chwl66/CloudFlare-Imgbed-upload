@@ -17,6 +17,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           messageResult = await handleClipboardUpload();
           break;
 
+        case 'uploadExternalLink':
+          messageResult = await handleExternalLinkUpload(request.imageUrl);
+          break;
+
         case 'copyText':
           await copyToClipboard(request.text);
           break;
@@ -503,6 +507,36 @@ async function handleClipboardUpload() {
     showUploadResult({ error: errorMessage }, 'error');
     return { success: false, error: errorMessage };
   }
+}
+
+// ==================== 外链收录 ====================
+
+/**
+ * 以外链方式收录图片地址（不下载原图）
+ * @param {string} imageUrl - 原图地址
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function handleExternalLinkUpload(imageUrl) {
+  const fileName = getFileNameFromUrl(imageUrl);
+
+  showUploadingStatus('外链收录中...');
+
+  const response = await sendMessageToBackground({
+    action: 'uploadExternalLink',
+    imageUrl,
+    fileName
+  });
+
+  if (!response || !response.success) {
+    const message = response?.error || '外链收录失败';
+    showUploadResult({ error: message }, 'error');
+    console.error('[ImgBed] 外链收录失败:', message);
+    return { success: false, error: message };
+  }
+
+  showUploadResult(response.result, 'success');
+  console.log('[ImgBed] 外链收录成功:', response.result);
+  return { success: true };
 }
 
 // 复制文本到剪贴板（使用工具函数）

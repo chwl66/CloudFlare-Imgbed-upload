@@ -312,7 +312,8 @@ async function migrateConfigIfNeeded(config) {
   }
 
   if (compareVersions(currentVersion, '1.4.0') < 0) {
-    // 1.4.0：上传渠道枚举对齐上游官方 /upload 接口，移除不存在的 external 渠道
+    // 1.4.0：上传渠道枚举对齐上游 /upload 接口的文件渠道；
+    // external 属于“只收录链接”的外链渠道，不参与文件上传，遇到历史脏值仍回落默认渠道
     if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(config.uploadChannel)) {
       config.uploadChannel = DEFAULT_CONFIG.uploadChannel;
     }

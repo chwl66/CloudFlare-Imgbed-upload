@@ -127,6 +127,13 @@ function createContextMenus() {
       contexts: ['image']
     });
 
+    // 外链收录（走上游 external 渠道，不下载原图）
+    chrome.contextMenus.create({
+      id: 'upload-external',
+      title: '以外链方式收录到 ImgBed',
+      contexts: ['image']
+    });
+
     // 页面右键菜单（一级）
     chrome.contextMenus.create({
       id: 'upload-clipboard',
@@ -224,6 +231,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }, '上传图片');
       break;
 
+    case 'upload-external':
+      // 外链收录：只登记链接，不下载原图
+      sendContextMenuMessage(tab?.id, {
+        action: 'uploadExternalLink',
+        imageUrl: info.srcUrl
+      }, '外链收录');
+      break;
+
     case 'upload-clipboard':
       // 上传剪贴板图片
       sendContextMenuMessage(tab?.id, {
@@ -280,6 +295,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })();
     return true; // 保持消息通道开放
+  }
+
+  if (request.action === 'uploadExternalLink') {
+    // 外链收录：把图片地址登记到图床，不下载文件
+    (async () => {
+      try {
+        log('info', `开始外链收录: ${request.imageUrl}`);
+        const result = await uploadExternalLink(request.imageUrl, request.fileName);
+        await recordUploadHistory({
+          source: UPLOAD_SOURCES.EXTERNAL,
+          fileName: request.fileName,
+          success: true,
+          url: result.url
+        });
+        sendResponse({ success: true, result });
+      } catch (error) {
+        const friendlyMessage = getUserFriendlyErrorMessage(error);
+        log('error', '外链收录失败', { error: error.message, url: request.imageUrl });
+        await recordUploadHistory({
+          source: UPLOAD_SOURCES.EXTERNAL,
+          fileName: request.fileName,
+          success: false,
+          error: friendlyMessage
+        });
+        sendResponse({ success: false, error: friendlyMessage });
+      }
+    })();
+    return true;
   }
 
   if (request.action === 'uploadImageUrl') {
@@ -987,4 +1030,58 @@ async function fetchImageWithFallback(imageUrl, requestOptions) {
   // 所有方式都失败了
   log('error', '所有获取方式都失败', { lastError: lastError?.message });
   throw lastError || createError(ErrorTypes.NETWORK_ERROR, '所有获取方式都失败了');
+}
+
+// ==================== 外链收录 ====================
+
+/**
+ * 以外链方式收录图片地址（上游 external 渠道）
+ * 只把 URL 登记到图床，不下载原图，适合有防盗链、或不想重复占存储的场景
+ *
+ * 上游 processFileUpload 会从 file 字段读取文件名/类型/大小，因此这里额外提交一个
+ * 极小的占位文件，真正的链接放在 url 字段里（uploadFileToExternal 只读 url）
+ *
+ * @param {string} imageUrl - 原图地址
+ * @param {string} fileName - 收录后的文件名
+ * @returns {Promise<{url: string, formatted: string}>} 返回的访问链接
+ */
+async function uploadExternalLink(imageUrl, fileName) {
+  const config = await getConfig();
+
+  if (!config.apiUrl) {
+    throw createError(ErrorTypes.CONFIG_ERROR, '请先配置 API 地址！');
+  }
+  if (!validateImageUrl(imageUrl)) {
+    throw createError(ErrorTypes.NETWORK_ERROR, '无效或不安全的图片URL');
+  }
+
+  const safeFileName = fileName || getFileNameFromUrl(imageUrl);
+  const params = new URLSearchParams({
+    uploadChannel: CONSTANTS.EXTERNAL_CHANNEL,
+    uploadNameType: config.uploadNameType,
+    returnFormat: config.returnFormat
+  });
+
+  if (config.uploadFolder) {
+    params.append('uploadFolder', config.uploadFolder);
+  }
+
+  const formData = new FormData();
+  formData.append('url', imageUrl);
+  formData.append(
+    'file',
+    new Blob([imageUrl], { type: guessMimeType(safeFileName) }),
+    safeFileName
+  );
+
+  const uploadUrl = `${config.apiUrl.replace(/\/$/, '')}/upload?${params.toString()}`;
+  log('info', '外链收录请求', { uploadUrl, imageUrl });
+
+  const response = await fetchWithTimeout(uploadUrl, {
+    method: 'POST',
+    headers: buildUploadHeaders(config),
+    body: formData
+  }, config.uploadTimeout);
+
+  return processUploadResponse(response, config);
 }
