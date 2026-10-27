@@ -653,6 +653,31 @@ function countChannelGroups(groups) {
   return Object.values(groups).reduce((total, names) => total + (Array.isArray(names) ? names.length : 0), 0);
 }
 
+/**
+ * 构建文件访问链接
+ * @param {string} apiUrl - 服务根地址
+ * @param {string} fileId - 文件 ID（形如 dir/name.png）
+ * @returns {string} 访问链接
+ */
+function buildFileUrl(apiUrl, fileId) {
+  const base = String(apiUrl || '').replace(/\/$/, '');
+  const id = String(fileId || '')
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+  return `${base}/file/${id}`;
+}
+
+/**
+ * 构建上游删除接口的路径段
+ * 上游 /api/manage/delete/[[path]] 用逗号还原路径分隔符
+ * @param {string} fileId - 文件 ID
+ * @returns {string} 路径段
+ */
+function buildDeletePathSegment(fileId) {
+  return encodeURIComponent(String(fileId || '').replace(/\//g, ','));
+}
+
 // ==================== 事件管理工具 ====================
 
 /**

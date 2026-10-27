@@ -10,6 +10,12 @@ const HISTORY_WINDOW_ID_KEY = '_historyWindowId';
 const HISTORY_WINDOW_WIDTH = 780;
 const HISTORY_WINDOW_HEIGHT = 840;
 
+// 图床文件管理弹窗
+const MANAGE_PAGE = 'manage.html';
+const MANAGE_WINDOW_ID_KEY = '_manageWindowId';
+const MANAGE_WINDOW_WIDTH = 900;
+const MANAGE_WINDOW_HEIGHT = 860;
+
 // 最近一次测试连接拿到的渠道分组（用于渠道名称候选与可用渠道过滤）
 const CHANNEL_GROUPS_KEY = '_channelGroups';
 let channelGroups = null;
@@ -340,7 +346,33 @@ function fillChannelOptions(names) {
 
 // 打开上传记录弹窗（已打开时聚焦已有窗口）
 async function openHistoryWindow() {
-  const windowId = await readHistoryWindowId();
+  await openExtensionWindow({
+    page: HISTORY_PAGE,
+    windowIdKey: HISTORY_WINDOW_ID_KEY,
+    width: HISTORY_WINDOW_WIDTH,
+    height: HISTORY_WINDOW_HEIGHT,
+    errorPrefix: '打开上传记录失败: '
+  });
+}
+
+// 打开图床文件管理弹窗（已打开时聚焦已有窗口）
+async function openManageWindow() {
+  await openExtensionWindow({
+    page: MANAGE_PAGE,
+    windowIdKey: MANAGE_WINDOW_ID_KEY,
+    width: MANAGE_WINDOW_WIDTH,
+    height: MANAGE_WINDOW_HEIGHT,
+    errorPrefix: '打开图床文件失败: '
+  });
+}
+
+/**
+ * 打开扩展内页面窗口，已存在时聚焦
+ * @param {Object} options - 窗口参数
+ * @returns {Promise<void>}
+ */
+async function openExtensionWindow({ page, windowIdKey, width, height, errorPrefix }) {
+  const windowId = await readWindowId(windowIdKey);
 
   if (typeof windowId === 'number') {
     try {
@@ -352,36 +384,45 @@ async function openHistoryWindow() {
   }
 
   try {
-    const historyWindow = await chrome.windows.create({
-      url: chrome.runtime.getURL(HISTORY_PAGE),
+    const created = await chrome.windows.create({
+      url: chrome.runtime.getURL(page),
       type: 'popup',
-      width: HISTORY_WINDOW_WIDTH,
-      height: HISTORY_WINDOW_HEIGHT
+      width,
+      height
     });
-    await rememberHistoryWindowId(historyWindow?.id);
+    await rememberWindowId(windowIdKey, created?.id);
   } catch (error) {
-    showStatus('打开上传记录失败: ' + error.message, 'error');
+    showStatus(errorPrefix + error.message, 'error');
   }
 }
 
-// 读取已保存的上传记录窗口 ID
-async function readHistoryWindowId() {
+/**
+ * 读取已保存的窗口 ID
+ * @param {string} key - 存储键
+ * @returns {Promise<number|undefined>}
+ */
+async function readWindowId(key) {
   try {
-    const data = await chrome.storage.session.get(HISTORY_WINDOW_ID_KEY);
-    return data[HISTORY_WINDOW_ID_KEY];
+    const data = await chrome.storage.session.get(key);
+    return data[key];
   } catch {
     return undefined;
   }
 }
 
-// 保存上传记录窗口 ID（session 存储不可用时忽略，重复点击只会多开窗口）
-async function rememberHistoryWindowId(windowId) {
+/**
+ * 保存窗口 ID（session 存储不可用时忽略，重复点击只会多开窗口）
+ * @param {string} key - 存储键
+ * @param {number} windowId - 窗口 ID
+ * @returns {Promise<void>}
+ */
+async function rememberWindowId(key, windowId) {
   if (typeof windowId !== 'number') return;
 
   try {
-    await chrome.storage.session.set({ [HISTORY_WINDOW_ID_KEY]: windowId });
+    await chrome.storage.session.set({ [key]: windowId });
   } catch (error) {
-    console.warn('保存上传记录窗口 ID 失败:', error.message);
+    console.warn('保存窗口 ID 失败:', error.message);
   }
 }
 
@@ -425,6 +466,12 @@ function bindEvents() {
   document.getElementById('historyBtn').addEventListener('click', async () => {
     await openHistoryWindow();
   });
+
+  // 图床文件管理按钮
+  document.getElementById('manageBtn').addEventListener('click', async () => {
+    await openManageWindow();
+  });
+
   // 切换渠道时刷新渠道名称候选
   const channelSelect = document.getElementById('uploadChannel');
   if (channelSelect) {
