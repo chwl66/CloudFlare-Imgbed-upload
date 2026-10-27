@@ -10,6 +10,20 @@ const HISTORY_WINDOW_ID_KEY = '_historyWindowId';
 const HISTORY_WINDOW_WIDTH = 780;
 const HISTORY_WINDOW_HEIGHT = 840;
 
+// 最近一次测试连接拿到的渠道分组（用于渠道名称候选与可用渠道过滤）
+const CHANNEL_GROUPS_KEY = '_channelGroups';
+let channelGroups = null;
+
+// 渠道显示名称
+const CHANNEL_LABELS = {
+  telegram: 'Telegram',
+  cfr2: 'CloudFlare R2',
+  s3: 'S3',
+  discord: 'Discord',
+  huggingface: 'Hugging Face',
+  webdav: 'WebDAV'
+};
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -45,8 +59,41 @@ async function loadConfig() {
         }
       }
     });
+
+    // 恢复上次测试连接拿到的渠道列表，保证重新打开弹窗仍能展示可选渠道
+    await restoreChannelGroups();
   } catch (error) {
     showStatus('加载配置失败: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 从 session 存储恢复渠道分组
+ * @returns {Promise<void>}
+ */
+async function restoreChannelGroups() {
+  try {
+    const data = await chrome.storage.session.get(CHANNEL_GROUPS_KEY);
+    const cached = data?.[CHANNEL_GROUPS_KEY];
+    if (!cached || typeof cached !== 'object' || countChannelGroups(cached) === 0) return;
+
+    channelGroups = cached;
+    applyChannelGroups(channelGroups);
+  } catch {
+    // session 存储不可用时不做任何处理
+  }
+}
+
+/**
+ * 缓存渠道分组（仅当前浏览器会话）
+ * @param {Object<string, string[]>} groups - 渠道分组
+ * @returns {Promise<void>}
+ */
+async function rememberChannelGroups(groups) {
+  try {
+    await chrome.storage.session.set({ [CHANNEL_GROUPS_KEY]: groups });
+  } catch (error) {
+    console.warn('保存渠道列表失败:', error.message);
   }
 }
 
@@ -140,9 +187,30 @@ async function testConnection() {
     const channelResult = await fetchChannelList(apiUrl, apiToken, authCode);
 
     if (channelResult.ok) {
-      fillChannelOptions(channelResult.channels);
-      const count = channelResult.channels.length;
-      showStatus(count > 0 ? `连接成功，该实例提供 ${count} 个渠道` : '连接测试成功！', 'success');
+      channelGroups = channelResult.groups;
+      applyChannelGroups(channelGroups);
+      await rememberChannelGroups(channelGroups);
+
+      const total = countChannelGroups(channelGroups);
+      if (total > 0) {
+        const summary = Object.entries(channelGroups)
+          .filter(([, names]) => names.length > 0)
+          .map(([channel, names]) => `${CHANNEL_LABELS[channel] || channel} ${names.length}`)
+          .join(' / ');
+
+        const selected = document.getElementById('uploadChannel')?.value || '';
+        const selectedNames = channelGroups[selected];
+        const selectedMissing = Array.isArray(selectedNames) && selectedNames.length === 0;
+
+        showStatus(
+          selectedMissing
+            ? `连接成功：${summary}；当前渠道 ${CHANNEL_LABELS[selected] || selected} 未在该实例配置`
+            : `连接成功：${summary}`,
+          selectedMissing ? 'info' : 'success'
+        );
+      } else {
+        showStatus('连接成功，但该实例没有启用任何上传渠道', 'info');
+      }
       return;
     }
 
@@ -166,20 +234,22 @@ async function testConnection() {
 
 /**
  * 获取实例可用渠道列表
- * @returns {Promise<{ok: boolean, status?: number, channels?: string[]}>}
+ * @returns {Promise<{ok: boolean, status?: number, groups?: Object<string, string[]>}>}
  */
 async function fetchChannelList(apiUrl, apiToken, authCode) {
   const baseUrl = apiUrl.replace(/\/$/, '');
-  const query = authCode ? `?authCode=${encodeURIComponent(authCode)}` : '';
   const headers = {};
 
   if (apiToken) {
     headers['Authorization'] = `Bearer ${apiToken}`;
   }
+  if (authCode) {
+    headers['authCode'] = authCode;
+  }
 
   try {
     const response = await fetchWithTimeout(
-      `${baseUrl}/api/channels${query}`,
+      `${baseUrl}/api/channels`,
       { method: 'GET', headers },
       CONSTANTS.TEST_TIMEOUT
     );
@@ -189,33 +259,52 @@ async function fetchChannelList(apiUrl, apiToken, authCode) {
     }
 
     const data = await response.json();
-    return { ok: true, channels: extractChannelNames(data) };
+    return { ok: true, groups: parseChannelGroups(data) };
   } catch (error) {
     return { ok: false, status: 0 };
   }
 }
 
 /**
- * 从 /api/channels 响应中提取渠道名称（兼容多种返回结构）
- * @param {any} data
- * @returns {string[]}
+ * 按实例实际配置更新渠道下拉与渠道名称候选
+ * @param {Object<string, string[]>} groups - 渠道类型 -> 渠道名称
+ * @returns {void}
  */
-function extractChannelNames(data) {
-  const list = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.channels)
-      ? data.channels
-      : Array.isArray(data?.data)
-        ? data.data
-        : [];
+function applyChannelGroups(groups) {
+  const total = countChannelGroups(groups);
+  const select = document.getElementById('uploadChannel');
 
-  const names = list.map(item => {
-    if (typeof item === 'string') return item;
-    if (!item || typeof item !== 'object') return '';
-    return item.channelName || item.name || item.id || '';
-  }).filter(name => typeof name === 'string' && name.trim());
+  if (select) {
+    Array.from(select.options).forEach(option => {
+      // 只有响应里明确给出该渠道、且渠道列表为空时才禁用；响应未提及的渠道不做限制
+      const names = groups ? groups[option.value] : undefined;
+      const unavailable = total > 0 && Array.isArray(names) && names.length === 0;
+      const label = CHANNEL_LABELS[option.value] || option.value;
 
-  return Array.from(new Set(names));
+      option.disabled = unavailable;
+      option.textContent = unavailable ? `${label}（未配置）` : label;
+    });
+  }
+
+  refreshChannelOptions();
+}
+
+/**
+ * 按当前选中的渠道刷新「渠道名称」候选
+ * @returns {void}
+ */
+function refreshChannelOptions() {
+  const select = document.getElementById('uploadChannel');
+  const names = channelGroups && select ? channelGroups[select.value] || [] : [];
+
+  fillChannelOptions(names);
+
+  const input = document.getElementById('channelName');
+  if (input) {
+    input.placeholder = names.length > 1
+      ? `该渠道有 ${names.length} 个配置：${names.join(' / ')}`
+      : '多渠道时指定，如 r2-main';
+  }
 }
 
 /**
@@ -336,6 +425,11 @@ function bindEvents() {
   document.getElementById('historyBtn').addEventListener('click', async () => {
     await openHistoryWindow();
   });
+  // 切换渠道时刷新渠道名称候选
+  const channelSelect = document.getElementById('uploadChannel');
+  if (channelSelect) {
+    channelSelect.addEventListener('change', refreshChannelOptions);
+  }
   
   // 输入框失焦时隐藏错误消息
   const inputs = document.querySelectorAll('input, select');

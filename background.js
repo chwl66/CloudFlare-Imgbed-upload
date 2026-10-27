@@ -448,11 +448,7 @@ function buildUploadUrl(config) {
     uploadNameType: config.uploadNameType,
     returnFormat: config.returnFormat
   });
-  
-  if (config.authCode && config.authCode.trim()) {
-    params.append('authCode', config.authCode);
-  }
-  
+
   if (config.channelName && config.channelName.trim()) {
     params.append('channelName', config.channelName);
   }
@@ -466,7 +462,8 @@ function buildUploadUrl(config) {
 
 /**
  * 构建上传请求头
- * 优先使用 API Token（Authorization: Bearer），兼容旧版 authCode
+ * 优先使用 API Token（Authorization: Bearer），认证码走 authCode 请求头
+ * （上游 authCore.extractAuthCode 支持请求头传递，不再放进 URL 以免被日志留存）
  * @param {Object} config - 配置对象
  * @returns {Object} 请求头对象
  */
@@ -475,6 +472,10 @@ function buildUploadHeaders(config) {
   
   if (config.apiToken && config.apiToken.trim()) {
     headers['Authorization'] = `Bearer ${config.apiToken.trim()}`;
+  }
+
+  if (config.authCode && config.authCode.trim()) {
+    headers['authCode'] = config.authCode.trim();
   }
   
   return headers;
@@ -489,14 +490,19 @@ function buildUploadHeaders(config) {
 async function processUploadResponse(uploadResponse, config) {
   if (!uploadResponse.ok) {
     const errorText = await uploadResponse.text().catch(() => '');
+    const reason = extractUpstreamErrorMessage(errorText, uploadResponse.status);
     log('error', '上传请求失败', {
       status: uploadResponse.status,
       statusText: uploadResponse.statusText,
       response: errorText.substring(0, 200)
     });
+
+    const authHint = uploadResponse.status === 401
+      ? '（请检查 API Token 或认证码）'
+      : '';
     throw createError(
       ErrorTypes.UPLOAD_ERROR,
-      `上传失败: ${uploadResponse.status} ${uploadResponse.statusText}`
+      `上传失败（${uploadResponse.status}）${reason ? `：${reason}` : ''}${authHint}`
     );
   }
   
@@ -658,9 +664,6 @@ function buildChunkedQuery(config, extra = {}) {
   if (config.channelName && config.channelName.trim()) {
     params.append('channelName', config.channelName);
   }
-  if (config.authCode && config.authCode.trim()) {
-    params.append('authCode', config.authCode);
-  }
 
   Object.entries(extra).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
@@ -680,6 +683,7 @@ function buildChunkedQuery(config, extra = {}) {
 async function parseChunkResponse(response, actionLabel) {
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
+    const reason = extractUpstreamErrorMessage(errorText, response.status);
     log('error', `${actionLabel}失败`, {
       status: response.status,
       statusText: response.statusText,
@@ -687,7 +691,7 @@ async function parseChunkResponse(response, actionLabel) {
     });
     throw createError(
       ErrorTypes.UPLOAD_ERROR,
-      `${actionLabel}失败: ${response.status} ${response.statusText}`
+      `${actionLabel}失败（${response.status}）${reason ? `：${reason}` : ''}`
     );
   }
 
@@ -698,7 +702,7 @@ async function parseChunkResponse(response, actionLabel) {
     if (data && data.success === false) {
       throw createError(
         ErrorTypes.UPLOAD_ERROR,
-        `${actionLabel}失败: ${data.message || data.error || '服务端返回失败'}`
+        `${actionLabel}失败：${stripErrorPrefix(data.message || data.error || '服务端返回失败')}`
       );
     }
 
@@ -816,7 +820,10 @@ async function cleanupChunkedUpload(config, uploadId, totalChunks) {
     totalChunks
   })}`;
 
-  await fetchWithTimeout(url, { method: 'POST' }, CONSTANTS.CONNECTION_TIMEOUT);
+  await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: buildUploadHeaders(config)
+  }, CONSTANTS.CONNECTION_TIMEOUT);
 }
 
 /**

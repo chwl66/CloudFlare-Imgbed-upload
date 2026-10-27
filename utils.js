@@ -520,6 +520,135 @@ function getFriendlyErrorMessage(error, status = null) {
   return message || '未知错误';
 }
 
+/**
+ * 从上游响应体中提取可读的错误原因
+ * 上游失败时可能返回纯文本（`Error: xxx`）、{error, message} 或重试失败的错误映射对象
+ * @param {string} bodyText - 响应体文本
+ * @param {number} status - HTTP 状态码
+ * @returns {string} 可读的错误原因，无法提取时返回空串
+ */
+function extractUpstreamErrorMessage(bodyText, status = null) {
+  const text = typeof bodyText === 'string' ? bodyText.trim() : '';
+  if (!text) return '';
+
+  let payload = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = null;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const direct = payload.error || payload.message || payload.msg;
+    if (typeof direct === 'string' && direct.trim()) {
+      return stripErrorPrefix(direct);
+    }
+
+    // 上游 tryRetry 失败时返回 { 渠道: 'Error: xxx' } 映射，取前两条
+    const entries = Object.entries(payload)
+      .filter(([, value]) => typeof value === 'string' && value.trim())
+      .slice(0, 2)
+      .map(([key, value]) => `${key}: ${stripErrorPrefix(value)}`);
+    if (entries.length > 0) {
+      return entries.join('；');
+    }
+
+    return '';
+  }
+
+  // 纯文本响应：去掉上游统一加的 Error: 前缀，过长的截断
+  const singleLine = text.split('\n').map(line => line.trim()).filter(Boolean)[0] || '';
+  return stripErrorPrefix(singleLine).slice(0, 300);
+}
+
+/**
+ * 去掉错误文本的 `Error:` / `Error：` 前缀
+ * @param {string} message
+ * @returns {string}
+ */
+function stripErrorPrefix(message) {
+  return String(message || '').replace(/^error\s*[:：]\s*/i, '').trim();
+}
+
+/**
+ * 解析上游 /api/channels 响应
+ * 上游返回按渠道分组的对象 `{ telegram: [{name, type}], cfr2: [...], ... }`，
+ * 同时兼容早期版本返回的数组结构
+ * @param {any} data - 响应 JSON
+ * @returns {Object<string, string[]>} 渠道类型 -> 渠道名称列表
+ */
+function parseChannelGroups(data) {
+  // 只记录响应中真实出现的渠道，缺失的渠道留空（不当作“未配置”，避免误禁用下拉）
+  const groups = {};
+
+  const ensureGroup = channel => {
+    if (!groups[channel]) groups[channel] = [];
+    return groups[channel];
+  };
+
+  const pushName = (channel, name) => {
+    if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(channel) || typeof name !== 'string') return;
+    const list = ensureGroup(channel);
+    const trimmed = name.trim();
+    if (!trimmed || list.includes(trimmed)) return;
+    list.push(trimmed);
+  };
+
+  // 兼容扁平条目（数组结构 / { channels: [...] } 包装）
+  const addFlatChannel = (item) => {
+    if (typeof item === 'string') {
+      pushName(CONSTANTS.VALID_UPLOAD_CHANNELS[0], item);
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+
+    const channel = CONSTANTS.VALID_UPLOAD_CHANNELS.find(key => key === item.channel || key === item.type);
+    if (channel) {
+      ensureGroup(channel);
+      pushName(channel, item.name || item.channelName);
+    }
+  };
+
+  if (Array.isArray(data)) {
+    data.forEach(addFlatChannel);
+    return groups;
+  }
+
+  if (!data || typeof data !== 'object') {
+    return groups;
+  }
+
+  // 标准结构：{ telegram: [{ name, type }], ... }
+  Object.entries(data).forEach(([channel, value]) => {
+    if (!CONSTANTS.VALID_UPLOAD_CHANNELS.includes(channel) || !Array.isArray(value)) return;
+
+    // 空数组也要记录：表示该渠道在实例上已存在但未配置渠道
+    ensureGroup(channel);
+    value.forEach(item => {
+      if (typeof item === 'string') pushName(channel, item);
+      else if (item && typeof item === 'object') pushName(channel, item.name || item.channelName || item.type);
+    });
+  });
+
+  // 兼容 { channels: [...] } / { data: [...] } 的数组包装
+  const wrapped = Array.isArray(data.channels) ? data.channels : Array.isArray(data.data) ? data.data : null;
+  if (wrapped) {
+    wrapped.forEach(addFlatChannel);
+  }
+
+  return groups;
+}
+
+/**
+ * 统计渠道分组中的渠道数量
+ * @param {Object<string, string[]>} groups - parseChannelGroups 结果
+ * @returns {number} 渠道数量
+ */
+function countChannelGroups(groups) {
+  if (!groups || typeof groups !== 'object') return 0;
+  return Object.values(groups).reduce((total, names) => total + (Array.isArray(names) ? names.length : 0), 0);
+}
+
 // ==================== 事件管理工具 ====================
 
 /**
