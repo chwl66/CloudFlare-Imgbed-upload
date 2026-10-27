@@ -82,12 +82,26 @@ cd CloudFlare-Imgbed-upload
 ### 🔧 高级安装选项
 
 #### 打包安装（适用于团队部署）
+
+生成一个只含运行时文件的 zip，解压后按上面「步骤2」加载即可：
+
+```bash
+node test/package.mjs
+# 输出：dist/cloudflare-imgbed-uploader-v1.9.0.zip（18 个文件，约 75 KB）
+```
+
+压缩包内 `manifest.json` 位于根目录，不含 `test/`、`userscript/`、文档与图标生成工具，可直接分发。
+
+也可以用浏览器自带的方式打包成 `.crx`：
+
 ```bash
 # 1. 在扩展管理页面点击"打包扩展程序"
 # 2. 选择 CloudFlare-Imgbed-upload 文件夹
 # 3. 生成 .crx 和 .pem 文件
 # 4. 分发 .crx 文件给团队成员安装
 ```
+
+> ⚠️ Chrome / Edge 已限制非商店来源的 `.crx` 直接安装，团队内部分发建议用上面的 zip + 「加载已解压的扩展程序」，或走企业策略下发。
 
 #### 企业策略部署
 ```json

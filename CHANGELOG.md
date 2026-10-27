@@ -21,6 +21,7 @@
 
 ### 🧪 测试
 - 冒烟测试扩展到 41 项：认证码请求头且不出现在 URL、上游错误文本透传、`external` 收录请求形态与相对链接补全、非图片文件上传、渠道分组解析、删除路径与文件链接拼接
+- 新增 `test/package.mjs` 打包脚本（零依赖，自带最小 ZIP 写入器）：只收 18 个运行时文件，输出 `dist/cloudflare-imgbed-uploader-v<version>.zip`，条目名统一正斜杠、`manifest.json` 位于根目录，打包后校验 manifest、页面与 `importScripts` 的引用完整性
 
 ---
 

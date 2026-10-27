@@ -2,6 +2,7 @@
 .workbuddy-ai/
 
 # 打包扩展产生的文件（README「打包安装」步骤生成）
+dist/
 *.crx
 *.pem
 *.zip
