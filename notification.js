@@ -101,11 +101,20 @@ function createResultNotification(result, type) {
   notification.style.right = position.right;
   
   if (type === 'success') {
-    const formats = [
-      { label: '直链', value: result.url },
-      { label: 'Markdown', value: `![image](${result.url})` },
-      { label: 'BBCode', value: `[img]${result.url}[/img]` }
-    ];
+    // 图片给图片语法，其他文件给链接语法（扩展已支持任意文件类型）
+    const isImage = result.isImage !== false;
+    const fileLabel = result.fileName || '文件';
+    const formats = isImage
+      ? [
+          { label: '直链', value: result.url },
+          { label: 'Markdown', value: `![image](${result.url})` },
+          { label: 'BBCode', value: `[img]${result.url}[/img]` }
+        ]
+      : [
+          { label: '直链', value: result.url },
+          { label: 'Markdown', value: `[${fileLabel}](${result.url})` },
+          { label: 'HTML', value: `<a href="${result.url}">${fileLabel}</a>` }
+        ];
     
     const formatItems = formats.map(format => `
       <div class="imgbed-format-item">

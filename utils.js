@@ -68,6 +68,34 @@ const CONSTANTS = {
     DRAG: 'drag',
     UNKNOWN: 'unknown'
   },
+
+  // 常见文件扩展名 -> MIME（剪贴板与任意文件上传时兜底推断类型）
+  MIME_BY_EXTENSION: {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    bmp: 'image/bmp',
+    svg: 'image/svg+xml',
+    ico: 'image/x-icon',
+    avif: 'image/avif',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    md: 'text/markdown',
+    json: 'application/json',
+    csv: 'text/csv',
+    zip: 'application/zip',
+    '7z': 'application/x-7z-compressed',
+    rar: 'application/vnd.rar',
+    gz: 'application/gzip',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    apk: 'application/vnd.android.package-archive',
+    epub: 'application/epub+zip'
+  },
   
   // 私有IP地址范围
   PRIVATE_IP_RANGES: [
@@ -270,14 +298,54 @@ function validateImageUrl(url) {
 }
 
 /**
- * 验证图片文件类型和内容
+ * 获取文件名扩展名（小写，不含点）
+ * @param {string} fileName - 文件名
+ * @returns {string} 扩展名，无扩展名时为空串
+ */
+function getFileExtension(fileName) {
+  const name = typeof fileName === 'string' ? fileName : '';
+  const index = name.lastIndexOf('.');
+  if (index <= 0 || index === name.length - 1) return '';
+  return name.slice(index + 1).toLowerCase();
+}
+
+/**
+ * 推断文件 MIME 类型：优先使用已知类型，其次按扩展名兜底
+ * @param {string} fileName - 文件名
+ * @param {string} providedType - 原始 MIME 类型
+ * @returns {string} MIME 类型
+ */
+function guessMimeType(fileName, providedType = '') {
+  if (providedType && providedType !== 'application/octet-stream') return providedType;
+  return CONSTANTS.MIME_BY_EXTENSION[getFileExtension(fileName)] || 'application/octet-stream';
+}
+
+/**
+ * 判断文件是否为图片（按 MIME 或扩展名）
+ * @param {File|Blob} file - 文件对象
+ * @returns {boolean}
+ */
+function isImageFile(file) {
+  if (!file) return false;
+  if (typeof file.type === 'string' && file.type.startsWith('image/')) return true;
+  const byExtension = CONSTANTS.MIME_BY_EXTENSION[getFileExtension(file.name)];
+  return typeof byExtension === 'string' && byExtension.startsWith('image/');
+}
+
+/**
+ * 验证待上传文件（大小、空文件），图片额外校验文件头
+ * 上游是文件床，非图片文件同样允许上传
  * @param {File|Blob} file - 文件对象
  * @param {Object} options - 验证选项
- * @returns {Promise<boolean>} 是否为有效图片
+ * @returns {Promise<boolean>} 是否可上传
  */
-async function validateImageFile(file, options = {}) {
-  const { maxSize = CONSTANTS.MAX_FILE_SIZE, strictMode = false, channel = '' } = options;
-  
+async function validateUploadFile(file, options = {}) {
+  const { maxSize = CONSTANTS.MAX_FILE_SIZE, strictMode = false, channel = '', requireImage = false } = options;
+
+  if (!file) {
+    throw new Error('没有可上传的文件');
+  }
+
   // 检查文件大小
   if (file.size > maxSize) {
     const channelHint = channel ? `（${channel} 渠道）` : '';
@@ -285,37 +353,52 @@ async function validateImageFile(file, options = {}) {
       `文件大小 ${formatFileSize(file.size)} 超过上限 ${formatFileSize(maxSize)}${channelHint}`
     );
   }
-  
+
   // 检查文件是否为空
   if (file.size === 0) {
     throw new Error('文件为空');
   }
-  
-  // 检查MIME类型
-  if (file.type && !file.type.startsWith('image/')) {
+
+  const imageFile = isImageFile(file);
+
+  if (requireImage && !imageFile) {
     throw new Error('不是有效的图片文件');
   }
-  
+
+  if (!imageFile) {
+    return true;
+  }
+
   // 检查文件头
   const buffer = await file.slice(0, 12).arrayBuffer();
   const view = new Uint8Array(buffer);
-  
-  const isValidSignature = Object.values(CONSTANTS.IMAGE_SIGNATURES).some(sig => 
+
+  const isValidSignature = Object.values(CONSTANTS.IMAGE_SIGNATURES).some(sig =>
     sig.every((byte, index) => view[index] === byte)
   );
-  
+
   // SVG 特殊处理（可能以 < 开头而非 <?xml）
-  const isSvg = view[0] === 0x3C && (file.type === 'image/svg+xml' || 
+  const isSvg = view[0] === 0x3C && (file.type === 'image/svg+xml' ||
     (file.name && file.name.toLowerCase().endsWith('.svg')));
-  
+
   if (!isValidSignature && !isSvg) {
     if (strictMode) {
       throw new Error('文件头与扩展名不匹配，可能不是有效的图片文件');
     }
     console.warn('[ImgBed] 文件头验证未通过，但继续上传');
   }
-  
+
   return true;
+}
+
+/**
+ * 验证图片文件类型和内容（图片专用入口）
+ * @param {File|Blob} file - 文件对象
+ * @param {Object} options - 验证选项
+ * @returns {Promise<boolean>} 是否为有效图片
+ */
+async function validateImageFile(file, options = {}) {
+  return validateUploadFile(file, { ...options, requireImage: true });
 }
 
 // ==================== 字符串处理工具 ====================

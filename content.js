@@ -139,7 +139,8 @@ async function uploadBlob(blob, fileName, source) {
       ? await uploadBlobChunked(blob, fileName, source, plan)
       : await uploadBlobSingle(blob, fileName, source, plan);
 
-    showUploadResult(result, 'success');
+    // isImage / fileName 用于决定通知里提供图片格式还是文件格式
+    showUploadResult({ ...result, isImage: isImageFile(blob), fileName }, 'success');
     console.log('[ImgBed] 上传成功:', result);
     return { success: true };
   } catch (error) {
@@ -412,6 +413,34 @@ async function readClipboardItems() {
 }
 
 /**
+ * 从剪贴板条目中挑出可上传的内容：优先图片，其次其他非文本类型
+ * @param {Array<ClipboardItem>} items - 剪贴板条目
+ * @returns {{item: ClipboardItem, type: string}|null} 选中的条目
+ */
+function findClipboardFileEntry(items) {
+  const entries = (items || []).map(item => {
+    const types = Array.isArray(item.types) ? item.types : [];
+    const imageType = types.find(type => typeof type === 'string' && type.startsWith('image/'));
+    const fileType = types.find(type => typeof type === 'string' && !type.startsWith('text/'));
+    return { item, type: imageType || fileType };
+  });
+
+  return entries.find(entry => entry.type) || null;
+}
+
+/**
+ * 根据 MIME 类型构建剪贴板文件名
+ * @param {string} mimeType - 剪贴板内容类型
+ * @returns {string} 文件名
+ */
+function buildClipboardFileName(mimeType) {
+  const [group, subtype = ''] = String(mimeType || '').split('/');
+  const extension = (subtype.split('+')[0] || '').replace(/[^a-z0-9]/gi, '') || 'bin';
+  const prefix = group === 'image' ? 'clipboard-image' : 'clipboard-file';
+  return `${prefix}.${extension}`;
+}
+
+/**
  * 把剪贴板异常翻译成用户可理解的提示
  * @param {Error} error
  * @returns {string}
@@ -433,7 +462,7 @@ function describeClipboardError(error) {
 
 // 处理剪贴板上传
 async function handleClipboardUpload() {
-  showUploadingStatus('剪贴板图片上传中...');
+  showUploadingStatus('剪贴板上传中...');
   console.log('[ImgBed] 开始读取剪贴板', {
     focused: document.hasFocus(),
     secureContext: window.isSecureContext
@@ -449,25 +478,23 @@ async function handleClipboardUpload() {
     return { success: false, error: errorMessage };
   }
 
-  const imageEntry = clipboardItems
-    .map(item => ({ item, type: item.types.find(t => t.startsWith('image/')) }))
-    .find(entry => entry.type);
+  const clipboardEntry = findClipboardFileEntry(clipboardItems);
 
-  if (!imageEntry) {
-    console.log('[ImgBed] 剪贴板中没有图片');
-    const noImageError = '剪贴板中没有图片数据';
-    showUploadResult({ error: noImageError }, 'error');
-    return { success: false, error: noImageError };
+  if (!clipboardEntry) {
+    console.log('[ImgBed] 剪贴板中没有可上传的图片或文件');
+    const noFileError = '剪贴板中没有图片或文件数据';
+    showUploadResult({ error: noFileError }, 'error');
+    return { success: false, error: noFileError };
   }
 
   try {
-    const blob = await imageEntry.item.getType(imageEntry.type);
+    const blob = await clipboardEntry.item.getType(clipboardEntry.type);
 
-    // 验证图片文件
-    await validateImageFile(blob);
+    // 文件床：图片与任意文件均可上传，图片额外校验文件头
+    await validateUploadFile(blob);
 
-    const fileName = `clipboard-image.${imageEntry.type.split('/')[1]}`;
-    console.log('[ImgBed] 正在上传剪贴板图片...', { type: imageEntry.type, size: blob.size });
+    const fileName = buildClipboardFileName(clipboardEntry.type);
+    console.log('[ImgBed] 正在上传剪贴板内容...', { type: clipboardEntry.type, size: blob.size });
 
     return await uploadBlob(blob, fileName, CONSTANTS.UPLOAD_SOURCES.CLIPBOARD);
   } catch (error) {
@@ -493,6 +520,7 @@ async function copyToClipboard(text) {
 
 
 // 拖拽上传功能（使用事件管理器）
+// 上游是文件床：拖入的任意类型文件都会上传，不再只限图片
 function initializeDragAndDrop() {
   // 仅当拖拽的是文件时才接管默认行为，避免影响站点自身的拖拽交互（编辑器、网盘上传区等）
   EventManager.add(document, 'dragover', function(e) {
@@ -504,17 +532,16 @@ function initializeDragAndDrop() {
 
   EventManager.add(document, 'drop', async function(e) {
     const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
-    if (imageFiles.length === 0) return;
+    if (files.length === 0) return;
 
     e.preventDefault();
 
     // 逐个上传，避免多文件并发时通知互相覆盖
-    for (const file of imageFiles) {
+    for (const file of files) {
       try {
-        await validateImageFile(file);
-        console.log('正在上传拖拽的图片...', file.name);
+        await validateUploadFile(file);
+        console.log('正在上传拖拽的文件...', file.name);
         await uploadBlob(file, file.name, CONSTANTS.UPLOAD_SOURCES.DRAG);
       } catch (error) {
         showUploadResult({ error: error.message }, 'error');
