@@ -1,6 +1,13 @@
 # CloudFlare ImgBed 上传器 - 浏览器扩展
 
+[![release](https://img.shields.io/github/v/release/chwl66/CloudFlare-Imgbed-upload?label=release&color=blue)](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/chwl66/CloudFlare-Imgbed-upload/total?color=brightgreen)](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-orange)](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3)
+[![license](https://img.shields.io/github/license/chwl66/CloudFlare-Imgbed-upload?color=green)](./LICENSE)
+
 一个功能强大的浏览器扩展，支持多种方式上传图片与文件到 CloudFlare ImgBed，提供外链收录、上传记录与图床文件管理能力。
+
+> **⬇️ 下载安装**：到 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest) 下载 `cloudflare-imgbed-uploader-v1.9.0.zip`，解压后在扩展管理页点「加载已解压的扩展程序」选择解压出来的目录即可，详见[安装指南](#-安装指南)。
 
 > **两个版本**
 > - **浏览器扩展版**（当前目录，Manifest V3）：功能最完整，支持浏览器原生右键菜单
@@ -50,14 +57,19 @@
 ### 🎯 快速安装（推荐）
 
 #### 步骤1：获取扩展文件
+
+**方式1（推荐）：下载 Release 压缩包**
+
+打开 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest) 下载 `cloudflare-imgbed-uploader-v1.9.0.zip`，解压到任意目录。压缩包内已剔除 `test/`、`userscript/`、文档与图标生成工具，只有运行所需的 18 个文件。
+
+**方式2：克隆仓库**
+
 ```bash
-# 方式1：Git克隆
 git clone https://github.com/chwl66/CloudFlare-Imgbed-upload.git
 cd CloudFlare-Imgbed-upload
-
-# 方式2：直接下载
-# 下载ZIP文件并解压到本地目录
 ```
+
+> 克隆下来的是完整源码，同样可以直接加载；只是目录里多了测试脚本与文档，不影响运行。
 
 #### 步骤2：浏览器安装
 1. **打开扩展管理页面**
@@ -71,7 +83,7 @@ cd CloudFlare-Imgbed-upload
 
 3. **加载扩展**
    - 点击"加载已解压的扩展程序"按钮
-   - 选择下载的 `CloudFlare-Imgbed-upload` 文件夹
+   - 选择解压出来的目录（或克隆下来的仓库目录，只要里面有 `manifest.json`）
    - 点击"选择文件夹"确认
 
 4. **验证安装**
@@ -447,7 +459,7 @@ chrome.storage.sync.get(null, console.log)
 
 ## 📝 版本历史
 
-完整记录见 [CHANGELOG.md](./CHANGELOG.md)。当前版本 **v1.9.0** 的主要变化：
+完整记录见 [CHANGELOG.md](./CHANGELOG.md)，各版本安装包见 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases)。当前版本 **v1.9.0** 的主要变化：
 
 - 对照上游 main 分支修正 `/api/channels` 解析，测试连接后按实例实际渠道过滤下拉并给出渠道名候选
 - 透传上游错误原因（如 `No R2 channel provided`），不再只提示 `上传失败: 500`
