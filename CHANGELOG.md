@@ -1,5 +1,7 @@
 # 📝 更新日志
 
+> **说明**：油猴脚本版已于 2026-10-28 移除，仓库只保留浏览器扩展版。下方 `userscript v1.0.0` / `userscript v1.1.0` 两条为历史记录，对应文件已不在仓库中（可在 Git 历史里找回）。
+
 ## [v1.9.0] - 2026-10-27
 
 ### ✨ 新增
@@ -51,7 +53,7 @@
 - 新增油猴脚本版 `userscript/cloudflare-imgbed-uploader.user.js`，功能与扩展版对齐：图片上传、剪贴板上传、拖拽上传、分块上传、三种复制格式、上传记录、设置面板与深色模式
 - 跨域请求改用 `GM_xmlhttpRequest`，不受 CORS 与防盗链 Referer 限制；配置与记录存于 `GM_setValue`
 - 由于油猴无法注册浏览器右键菜单，改为「图片悬停按钮 + 可选接管图片右键菜单」两种入口；剪贴板读取被拒时自动降级为「按 Ctrl+V 粘贴」
-- 使用说明与版本差异见 [`userscript/README.md`](./userscript/README.md)
+- 使用说明与版本差异见 `userscript/README.md`（该文件已于 2026-10-28 随油猴版一并移除）
 
 ---
 

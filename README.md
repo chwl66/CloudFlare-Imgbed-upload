@@ -9,10 +9,6 @@
 
 > **⬇️ 下载安装**：到 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest) 下载 `cloudflare-imgbed-uploader-v1.9.0.zip`，解压后在扩展管理页点「加载已解压的扩展程序」选择解压出来的目录即可，详见[安装指南](#-安装指南)。
 
-> **两个版本**
-> - **浏览器扩展版**（当前目录，Manifest V3）：功能最完整，支持浏览器原生右键菜单
-> - **油猴脚本版**（[`userscript/`](./userscript/README.md)）：单文件，适配 Tampermonkey / Violentmonkey，适合不装扩展或使用 Firefox 的场景
-
 ## ✨ 核心特性
 
 ### 🖱️ 多种上传方式
@@ -60,7 +56,7 @@
 
 **方式1（推荐）：下载 Release 压缩包**
 
-打开 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest) 下载 `cloudflare-imgbed-uploader-v1.9.0.zip`，解压到任意目录。压缩包内已剔除 `test/`、`userscript/`、文档与图标生成工具，只有运行所需的 18 个文件。
+打开 [Releases](https://github.com/chwl66/CloudFlare-Imgbed-upload/releases/latest) 下载 `cloudflare-imgbed-uploader-v1.9.0.zip`，解压到任意目录。压缩包内已剔除 `test/`、文档与图标生成工具，只有运行所需的 18 个文件。
 
 **方式2：克隆仓库**
 
@@ -102,7 +98,7 @@ node test/package.mjs
 # 输出：dist/cloudflare-imgbed-uploader-v1.9.0.zip（18 个文件，约 75 KB）
 ```
 
-压缩包内 `manifest.json` 位于根目录，不含 `test/`、`userscript/`、文档与图标生成工具，可直接分发。
+压缩包内 `manifest.json` 位于根目录，不含 `test/`、文档与图标生成工具，可直接分发。
 
 也可以用浏览器自带的方式打包成 `.crx`：
 
