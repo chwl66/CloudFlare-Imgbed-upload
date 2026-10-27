@@ -27,12 +27,15 @@ const server = http.createServer((req, res) => {
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
     const body = Buffer.concat(chunks);
+    const bodyText = body.toString('utf8');
     const query = Object.fromEntries(url.searchParams);
     calls.push({
       path: url.pathname,
       query,
       auth: req.headers.authorization || '',
+      authCodeHeader: req.headers.authcode || '',
       bodySize: body.length,
+      bodyText,
       contentType: req.headers['content-type'] || ''
     });
 
@@ -44,6 +47,17 @@ const server = http.createServer((req, res) => {
     if (url.pathname !== '/upload') {
       res.writeHead(404);
       return res.end('{}');
+    }
+
+    // 模拟上游失败：返回纯文本 Error: ...
+    if (bodyText.includes('fail-upload')) {
+      res.writeHead(500, { 'content-type': 'text/plain' });
+      return res.end('Error: No R2 channel provided');
+    }
+
+    // 外链收录：上游返回相对路径
+    if (query.uploadChannel === 'external') {
+      return json([{ src: '/file/external-link.png' }]);
     }
 
     // 初始化
@@ -167,7 +181,7 @@ await syncArea.set({
   autoRetry: true,
   _version: '1.4.0'
 });
-await localArea.set({ apiToken: 'test-token', authCode: '' });
+await localArea.set({ apiToken: 'test-token', authCode: 'test-auth-code' });
 
 function sendMessage(request) {
   return new Promise((resolve, reject) => {
@@ -221,6 +235,8 @@ check(
     plainCall.query.uploadNameType === 'default'
 );
 check('Token 走 Authorization 头', plainCall?.auth === 'Bearer test-token', plainCall?.auth);
+check('认证码走 authCode 请求头', plainCall?.authCodeHeader === 'test-auth-code', plainCall?.authCodeHeader);
+check('认证码不出现在 URL', plainCall && !('authCode' in plainCall.query), `query=${plainCall?.query?.authCode ?? ''}`);
 
 // ---------- 3. 分块上传 ----------
 calls.length = 0;
@@ -304,6 +320,89 @@ check(
   '9MB 按 8MB 切分为 2 块',
   calls.filter((c) => c.query.chunked === 'true' && c.query.merge !== 'true').length === 2,
   `chunks=${calls.filter((c) => c.query.chunked === 'true' && c.query.merge !== 'true').length}`
+);
+
+// ---------- 7. 上游错误文本透传 ----------
+// 关掉自动重试，避免测试白等 7 秒退避
+await syncArea.set({ autoRetry: false });
+calls.length = 0;
+const failResp = await sendMessage({
+  action: 'uploadFile',
+  fileData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  fileName: 'fail-upload.png',
+  source: 'drag'
+});
+check('上传失败返回 success=false', failResp?.success === false);
+check(
+  '错误信息包含上游原因',
+  typeof failResp?.error === 'string' && failResp.error.includes('No R2 channel provided') && failResp.error.includes('500'),
+  failResp?.error || ''
+);
+await syncArea.set({ autoRetry: true });
+
+// ---------- 8. 外链收录（external 渠道） ----------
+calls.length = 0;
+const externalResp = await sendMessage({
+  action: 'uploadExternalLink',
+  imageUrl: 'https://example.com/pics/external-link.png',
+  fileName: 'external-link.png'
+});
+check('外链收录成功', externalResp?.success === true, externalResp?.error || '');
+check(
+  '外链收录返回绝对链接（相对路径被补全）',
+  externalResp?.result?.url === `http://127.0.0.1:${port}/file/external-link.png`,
+  externalResp?.result?.url
+);
+const externalCall = calls.find((c) => c.query.uploadChannel === 'external');
+check('外链收录使用 external 渠道', !!externalCall);
+check(
+  '外链收录提交 url 与占位文件',
+  !!externalCall && externalCall.bodyText.includes('name="url"') && externalCall.bodyText.includes('https://example.com/pics/external-link.png') && externalCall.bodyText.includes('name="file"')
+);
+check('外链收录带上认证头', externalCall?.authCodeHeader === 'test-auth-code');
+
+// ---------- 9. 非图片文件上传 ----------
+calls.length = 0;
+const pdfData = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 test').toString('base64')}`;
+const pdfResp = await sendMessage({
+  action: 'uploadFile',
+  fileData: pdfData,
+  fileName: 'report.pdf',
+  source: 'drag'
+});
+check('非图片文件可上传', pdfResp?.success === true, pdfResp?.error || '');
+check('非图片文件保留原文件名', calls.some((c) => c.bodyText.includes('report.pdf')));
+
+// ---------- 10. 渠道列表解析与删除路径 ----------
+const channelGroups = sandbox.parseChannelGroups({
+  telegram: [{ name: 'tg-main', type: 'TelegramNew' }],
+  cfr2: [{ name: 'r2-a', type: 'CloudflareR2' }, { name: 'r2-b', type: 'CloudflareR2' }],
+  s3: [],
+  discord: [],
+  huggingface: [],
+  webdav: []
+});
+check('解析上游渠道分组', channelGroups.telegram.length === 1 && channelGroups.cfr2.length === 2, JSON.stringify(channelGroups));
+check('渠道总数统计', sandbox.countChannelGroups(channelGroups) === 3);
+
+const flatGroups = sandbox.parseChannelGroups([{ name: 'r2-a', type: 'cfr2' }]);
+check('兼容数组结构', flatGroups.cfr2.length === 1, JSON.stringify(flatGroups));
+
+check(
+  '上游错误映射被展开',
+  sandbox.extractUpstreamErrorMessage('{"cfr2":"Error: No R2 channel provided"}') === 'cfr2: No R2 channel provided',
+  sandbox.extractUpstreamErrorMessage('{"cfr2":"Error: No R2 channel provided"}')
+);
+
+const deleteSegment = sandbox.buildDeletePathSegment('img/test/a.png');
+check(
+  '删除路径用逗号还原分隔符（上游解码后 split 还原）',
+  decodeURIComponent(deleteSegment).split(',').join('/') === 'img/test/a.png',
+  deleteSegment
+);
+check(
+  '文件链接按路径段编码',
+  sandbox.buildFileUrl('https://img.example.com/', 'img/test/a b.png') === 'https://img.example.com/file/img/test/a%20b.png'
 );
 
 server.close();
