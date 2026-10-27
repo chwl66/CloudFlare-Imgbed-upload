@@ -1,6 +1,6 @@
 # CloudFlare ImgBed 上传器 - 浏览器扩展
 
-一个功能强大的浏览器扩展，支持多种方式上传图片到 CloudFlare ImgBed 图床，提供便捷的图片管理解决方案。
+一个功能强大的浏览器扩展，支持多种方式上传图片与文件到 CloudFlare ImgBed，提供外链收录、上传记录与图床文件管理能力。
 
 > **两个版本**
 > - **浏览器扩展版**（当前目录，Manifest V3）：功能最完整，支持浏览器原生右键菜单
@@ -12,6 +12,8 @@
 - **右键菜单上传**：在任意网页图片上右键，一键上传到图床
 - **剪贴板上传**：支持截图、复制图片后直接上传，默认快捷键 `Ctrl+Shift+U`（可在 `chrome://extensions/shortcuts` 自定义）
 - **拖拽上传**：将本地图片文件直接拖拽到网页即可上传
+- **任意文件上传**：上游是文件床，拖拽或粘贴 PDF、压缩包、音视频等非图片文件同样可以上传
+- **外链收录**：右键图片 → 「以外链方式收录」，只登记原图地址、不下载文件，防盗链站点也能收录
 - **跨域图片处理**：智能处理防盗链保护，多重fallback机制确保上传成功
 
 ### 📋 智能复制格式
@@ -26,6 +28,7 @@
 - **实时反馈**：上传进度实时显示，成功/失败状态清晰提示
 - **错误处理**：详细的错误信息和解决建议
 - **上传记录**：独立弹窗查看最近 200 条上传记录，支持搜索、状态筛选、多格式复制与删除
+- **图床文件管理**：独立窗口浏览实例中的文件，支持服务端搜索、分页、复制链接、打开与删除（需带 `list` / `delete` 权限的 API Token）
 
 ### ⚙️ 丰富配置选项
 - **API服务配置**：支持自定义CloudFlare ImgBed服务地址
@@ -113,7 +116,7 @@ cd CloudFlare-Imgbed-upload
    API Token：your-api-token（可选，推荐，需 upload 权限）
    认证码：your-auth-code（可选，取决于服务配置）
    ```
-   > API Token 与认证码二选一：配置了 API Token 时通过 `Authorization: Bearer` 请求头传递，否则回退使用认证码。
+   > API Token 与认证码二选一：API Token 通过 `Authorization: Bearer` 请求头传递，认证码通过 `authCode` 请求头传递，都不会出现在 URL 里。
 
 3. **验证连接**
    - 点击"测试连接"按钮
@@ -193,13 +196,14 @@ cd CloudFlare-Imgbed-upload
 - 末尾的 `/` 会被自动去掉；填写服务根地址即可，不要包含 `/upload` 路径
 
 **API Token（`apiToken`）** — 可选，推荐
-- 在 ImgBed 管理后台创建的 Token，需具备 `upload` 权限
+- 在 ImgBed 管理后台创建的 Token，上传需要 `upload` 权限；「图床文件」窗口还需要 `list` 与 `delete` 权限
 - 与认证码二选一；配置后通过 `Authorization: Bearer <token>` 请求头传递，优先级高于认证码
 - 敏感信息，仅保存在浏览器本地；保存后重新打开弹窗会以掩码（`••••••`）显示，留空保存不会覆盖原值
 
 **上传认证码（`authCode`）** — 可选
 - 服务端启用了认证码时填写；与 API Token 二选一
-- 未配置 API Token 时，作为 `authCode` 查询参数随上传请求发送
+- 未配置 API Token 时，通过 `authCode` 请求头随上传请求发送（上游 `extractAuthCode` 支持请求头；不再拼进 URL，避免被服务端日志留存）
+- 认证码改成请求头后，需要服务端为较新版本；如果实例很旧（只读 URL 参数），请先升级图床服务端
 - 敏感信息，处理方式同 API Token
 
 **上传渠道（`uploadChannel`）**
@@ -213,7 +217,7 @@ cd CloudFlare-Imgbed-upload
 | `huggingface` | Hugging Face |
 | `webdav` | WebDAV |
 
-> 以上取值与上游 `/upload` 接口的 `uploadChannel` 枚举完全一致（见 [官方上传 API 文档](https://cfbed.sanyue.de/api/upload.html)）。旧版本中的 `external` 选项在上游接口中并不存在，已移除，历史配置会自动回落到默认渠道。
+> 以上取值与上游 `/upload` 接口的 `uploadChannel` 枚举一致（见 [官方上传 API 文档](https://cfbed.sanyue.de/api/upload.html)）。上游另有 `external`（外链渠道）：它提交的是 `url` 而不是文件，只登记链接、不落存储，因此不放进上传渠道下拉，而是做成独立的「外链收录」入口。
 
 **渠道名称（`channelName`）** — 可选
 - 同一渠道配置了多个存储时，指定使用的渠道名称（对应服务端 `channelName` 参数）
@@ -282,20 +286,31 @@ cd CloudFlare-Imgbed-upload
 - 或使用快捷键 `Ctrl+Shift+U`（可在 `chrome://extensions/shortcuts` 中修改）
 
 ### 3. 拖拽上传
-- 直接将图片文件从文件管理器拖拽到网页
-- 自动开始上传
+- 直接将图片或任意文件从文件管理器拖拽到网页
+- 自动开始上传，多文件依次处理
 
 ### 4. 查看配置
 - 点击扩展图标查看和修改配置
 
 ### 5. 查看上传记录
 - 点击配置界面底部的"上传记录"按钮，在独立弹窗中查看最近 200 条记录
-- 记录包含文件名、上传来源（右键图片/剪贴板/拖拽）、时间与成功或失败原因
+- 记录包含文件名、上传来源（右键图片/剪贴板/拖拽/外链收录）、时间与成功或失败原因
 - 支持按文件名、链接、错误信息搜索，并按成功/失败筛选
 - 每条记录可复制直链、Markdown、BBCode 格式，或在新标签页打开原图
 - 支持单条删除与一键清空；已打开的窗口会在新的上传完成后自动刷新
 
 > 记录仅保存在浏览器本地（`chrome.storage.local`），不会同步到其他设备，也不会上传给第三方。
+
+### 6. 外链收录
+- 在任意网页图片上右键，选择"以外链方式收录到 ImgBed"
+- 只把原图地址登记到图床（上游 `external` 渠道），不下载、不转存文件
+- 适合有防盗链保护、或不想重复占用存储的图片；收录后的链接会复制到剪贴板
+- 需要实例支持上游的外链渠道（`uploadChannel=external`）
+
+### 7. 管理图床文件
+- 点击配置界面底部的"图床文件"按钮，在独立窗口中浏览实例里的文件
+- 支持按文件名服务端搜索、分页、复制链接、在新标签页打开与删除（删除需二次确认）
+- 管理接口（`/api/manage/*`）要求管理员身份：请填写在 ImgBed 后台创建的、带 `list` 与 `delete` 权限的 API Token；认证码对管理接口无效
 
 ## 🔧 故障排除
 
@@ -418,13 +433,14 @@ chrome.storage.sync.get(null, console.log)
 
 ## 📝 版本历史
 
-完整记录见 [CHANGELOG.md](./CHANGELOG.md)。当前版本 **v1.8.1** 的主要变化：
+完整记录见 [CHANGELOG.md](./CHANGELOG.md)。当前版本 **v1.9.0** 的主要变化：
 
-- 对齐上游官方 `/upload` 接口，移除不存在的 `external` 渠道
-- 新增大文件分块上传（`telegram` / `cfr2` / `s3` / `discord`）
-- 修复服务端 `publicUrl` 被域名重写、导致 CDN 链接失效的问题
-- 快捷键迁移到 `commands` API，支持在浏览器中自定义
-- 测试连接改为非破坏性探测，不再向图床写入测试文件
+- 对照上游 main 分支修正 `/api/channels` 解析，测试连接后按实例实际渠道过滤下拉并给出渠道名候选
+- 透传上游错误原因（如 `No R2 channel provided`），不再只提示 `上传失败: 500`
+- 新增「外链收录」，对应上游 `external` 渠道
+- 支持上传任意文件类型（上游是文件床），拖拽与剪贴板均可
+- 新增「图床文件」窗口，接入上游 `/api/manage/list` 与 `/api/manage/delete`
+- 认证码改走 `authCode` 请求头，不再出现在 URL 中
 
 ## 🚀 路线图
 

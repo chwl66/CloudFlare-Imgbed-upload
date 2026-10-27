@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CloudFlare ImgBed 上传器",
-  "version": "1.8.1",
-  "description": "右键上传图片到 CloudFlare ImgBed 图床",
+  "version": "1.9.0",
+  "description": "上传图片与文件到 CloudFlare ImgBed，支持外链收录与文件管理",
   "permissions": [
     "contextMenus",
     "storage",
